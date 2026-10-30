@@ -34,16 +34,40 @@ builder.Services.ConfigureApplicationCookie(o =>
     o.Events.OnRedirectToLogin = c => { if (c.Request.Path.StartsWithSegments("/api")) c.Response.StatusCode = 401; else c.Response.Redirect(c.RedirectUri); return Task.CompletedTask; };
     o.Events.OnRedirectToAccessDenied = c => { if (c.Request.Path.StartsWithSegments("/api")) c.Response.StatusCode = 403; else c.Response.Redirect(c.RedirectUri); return Task.CompletedTask; };
 });
-builder.Services.AddAuthentication().AddJwtBearer(o => o.TokenValidationParameters = new TokenValidationParameters
+builder.Services.AddAuthentication().AddJwtBearer(o =>
 {
-    ValidateIssuer = true,
-    ValidateAudience = true,
-    ValidateLifetime = true,
-    ValidateIssuerSigningKey = true,
-    ValidIssuer = builder.Configuration["Jwt:Issuer"],
-    ValidAudience = builder.Configuration["Jwt:Audience"],
-    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-    ClockSkew = TimeSpan.FromSeconds(30)
+    o.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.FromSeconds(30)
+    };
+    // احراز هویت Bearer هنگام اجرای policy انجام می‌شود؛ کنترل فعال‌بودن باید همین‌جا باشد.
+    o.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var users = context.HttpContext.RequestServices.GetRequiredService<UserManager<AppUser>>();
+            var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var account = id is null ? null : await users.FindByIdAsync(id);
+            if (account is null || !account.IsActive)
+            {
+                context.Fail("حساب کاربری معتبر یا فعال نیست.");
+                return;
+            }
+            // نقش فعلی از سرور خوانده می‌شود؛ توکن قدیمی مجوز حذف‌شده را زنده نگه نمی‌دارد.
+            if (context.Principal?.Identity is ClaimsIdentity identity)
+            {
+                foreach (var claim in identity.FindAll(identity.RoleClaimType).ToArray()) identity.RemoveClaim(claim);
+                foreach (var role in await users.GetRolesAsync(account)) identity.AddClaim(new Claim(identity.RoleClaimType, role));
+            }
+        }
+    };
 });
 builder.Services.AddAuthorization(o => o.AddPolicy("ManagementApi", p =>
 {
@@ -65,7 +89,7 @@ var app = builder.Build();
 app.UseMiddleware<ErrorMiddleware>();
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseHttpsRedirection(); app.UseStaticFiles(); app.UseRouting(); app.UseCors(); app.UseRateLimiter(); app.UseAuthentication();
-// قفل کاربر غیرفعال، هم برای کوکی و هم توکن؛ نقش و شعبه در هر عملیات سمت سرور کنترل می‌شوند.
+// این middleware برای کوکی پنل است؛ Bearer جداگانه در OnTokenValidated بررسی می‌شود.
 app.Use(async (ctx, next) =>
 {
     if (ctx.User.Identity?.IsAuthenticated == true)

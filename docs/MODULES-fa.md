@@ -25,3 +25,9 @@
 | tests/AbibiFood.Tests | تست قواعد و سرویس با InMemory |
 
 در Audit فعلی نوع عملیات، کاربر، شعبه و ID موجود است؛ ثبت مقدار قبل/بعد هنوز کامل نشده. ظاهر پنل جدید مدیریتی است و هویت/فونت از قالب مالک گرفته شده، نه این‌که پنل مشتری به پنل مدیر تغییر داده شده باشد.
+
+## تست‌های پذیرش و اعتبار JWT
+
+`Program.cs` در `JwtBearerEvents.OnTokenValidated`، موجودبودن/فعال‌بودن حساب و نقش فعلی Identity را قبل از مجوزدهی ManagementApi بررسی می‌کند. کنترل middleware پس از UseAuthentication برای Cookie باقی می‌ماند؛ Bearer ممکن است هنگام policy احراز هویت شود. این تفاوت علت اصلاح این بخش است.
+
+`PhaseOneFactory` میزبان واقعی ASP.NET با جایگزینی SQL توسط InMemory و رازهای تصادفی موقت تست می‌سازد؛ `PhaseOneHttpTests` ورود API/Cookie و مرز مجوزها را بررسی می‌کند. `SqlServerAcceptanceTests` مسیر مستقل و اختیاری SQL را دارد؛ نبود SQL پیش‌فرض Skipped و در حالت الزامی شکست است. این کلاس‌ها کد تولید نیستند.
