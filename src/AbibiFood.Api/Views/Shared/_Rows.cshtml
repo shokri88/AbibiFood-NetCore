@@ -1,0 +1,2 @@
+@{var rows=ViewData["Rows"] as List<AdminRow> ?? [];}
+<div class="table-responsive mt-4"><table class="table align-middle"><thead><tr><th>عنوان</th><th>جزئیات</th><th></th></tr></thead><tbody>@foreach(var row in rows){<tr><td>@row.Title</td><td>@row.Details</td><td><a href="@row.EditUrl" class="btn btn-outline-primary btn-sm">ویرایش</a></td></tr>}@if(rows.Count==0){<tr><td colspan="3">هنوز رکوردی تعریف نشده است.</td></tr>}</tbody></table></div>

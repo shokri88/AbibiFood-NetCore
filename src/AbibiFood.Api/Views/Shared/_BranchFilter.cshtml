@@ -1,0 +1,2 @@
+@{var branches=ViewData["Branches"] as List<Branch> ?? [];}
+<form method="get" class="row g-3 mb-4"><div class="col-md-5"><label class="form-label" for="branchId">شعبه</label><select class="form-select" name="branchId" id="branchId">@foreach(var b in branches){<option value="@b.Id" selected="@(b.Id==(ViewData["BranchId"] as int?))">@b.Name</option>}</select></div><div class="col-auto align-self-end"><button class="btn btn-primary">نمایش شعبه</button></div></form>

@@ -1,0 +1,63 @@
+/* Hasti typography overrides. Load after style-02.css.
+ * Change --abibi-font-family below to switch between the supplied webfonts.
+ * Only Heavy faces are supplied; existing sizes and layout stay in style-02.css.
+ */
+@font-face {
+    font-family: "Hasti";
+    src: url("../fonts/hasti/Hasti-HeavyR.woff") format("woff");
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Hasti Rounded";
+    src: url("../fonts/hasti/Hasti-HeavyRRD.woff") format("woff");
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Hasti Sharp";
+    src: url("../fonts/hasti/Hasti-HeavyS.woff") format("woff");
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Hasti Sharp Rounded";
+    src: url("../fonts/hasti/Hasti-HeavySRD.woff") format("woff");
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    /* Hasti = soft / flat dots; Rounded = round dots;
+       Sharp = sharp / flat dots; Sharp Rounded = sharp / round dots. */
+    --abibi-font-family: "Hasti", Tahoma, sans-serif;
+    /* ss01: Persian digits and Persian forms of Arabic yeh/kaf (Hasti guide).
+       Set "ss01" to 0 here to retain Latin digits when needed. */
+    --abibi-font-features: "kern" 1, "liga" 1, "calt" 1, "ss01" 1;
+    --bs-font-sans-serif: var(--abibi-font-family);
+    --bs-font-monospace: var(--abibi-font-family);
+    --bs-body-font-family: var(--abibi-font-family);
+}
+
+body,
+button,
+input,
+select,
+textarea,
+optgroup,
+option,
+.brand small,
+.deals-section::before,
+.validation-message::before {
+    font-family: var(--abibi-font-family);
+    font-feature-settings: var(--abibi-font-features);
+    /* Avoid artificial bold/italic on these static Heavy font files. */
+    font-synthesis: none;
+}
