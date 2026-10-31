@@ -35,7 +35,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
     public async Task<IActionResult> Branches(int? id, CancellationToken ct)
     {
         var list = await db.Branches.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow(x.Name, x.Address + (x.IsActive ? " · فعال" : " · غیرفعال"), "/Admin/Branches?id=" + x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow(x.Name, x.Address + (x.IsActive ? " · فعال" : " · غیرفعال"), "/Admin/Branches?id=" + x.Id, DeleteKind: "Branch", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id);
         return View(x is null ? new BranchInput() : new BranchInput { Id = x.Id, Name = x.Name, Address = x.Address, Description = x.Description, Latitude = x.Latitude, Longitude = x.Longitude, IsActive = x.IsActive });
     }
@@ -46,8 +46,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
     public async Task<IActionResult> Foods(int? id, CancellationToken ct)
     {
         var list = await db.Foods.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow(x.Name, x.Description + (x.IsActive ? " · فعال" : " · غیرفعال"), "/Admin/Foods?id=" + x.Id)).ToList();
-        ViewData["Images"] = await db.FoodImages.AsNoTracking().Where(x => x.FoodId == id).OrderBy(x => x.SortOrder).ToListAsync(ct);
+        ViewData["Rows"] = list.Select(x => new AdminRow(x.Name, x.Description + (x.IsActive ? " · فعال" : " · غیرفعال"), "/Admin/Foods?id=" + x.Id, DeleteKind: "Food", DeleteId: x.Id, ImageUrl: "/Admin/Images?foodId=" + x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new FoodInput() : new FoodInput { Id = x.Id, Name = x.Name, Title = x.Title, Description = x.Description, IsActive = x.IsActive });
     }
     [Authorize(Roles = "Manager"), HttpPost]
@@ -62,6 +61,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         var food = await db.Foods.AsNoTracking().SingleOrDefaultAsync(x => x.Id == selectedFood, ct);
         if (food is null || (id.HasValue && (image is null || image.FoodId != food.Id))) return NotFound();
         ViewData["FoodName"] = food.Name;
+        ViewData["Images"] = await db.FoodImages.AsNoTracking().Where(x => x.FoodId == food.Id).OrderBy(x => x.SortOrder).ToListAsync(ct);
         return View(image is null ? new ImageInput { FoodId = food.Id } : new ImageInput
         { Id = image.Id, FoodId = image.FoodId, Path = image.Path, SortOrder = image.SortOrder, IsActive = image.IsActive });
     }
@@ -91,7 +91,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         }
         catch { if (newPath is not null) uploads.DeleteNewFile(newPath); throw; }
         TempData["Success"] = messages["Saved"];
-        return RedirectToAction(nameof(Foods), new { id = input.FoodId });
+        return RedirectToAction(nameof(Images), new { foodId = input.FoodId });
     }
     [Authorize(Roles = "Manager"), HttpGet]
     public async Task<IActionResult> Groups(int? branchId, int? id, CancellationToken ct)
@@ -101,7 +101,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         ViewData["Groups"] = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         var list = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow(x.Title, x.ImagePath, "/Admin/Groups?branchId=" + branch + "&id=" + x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow(x.Title, x.IsActive ? "فعال" : "غیرفعال", "/Admin/Groups?branchId=" + branch + "&id=" + x.Id, DeleteKind: "BranchGroup", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new GroupInput { BranchId = branch ?? 0 } : new GroupInput { Id = x.Id, BranchId = x.BranchId, Title = x.Title, ImagePath = x.ImagePath, SortOrder = x.SortOrder, IsActive = x.IsActive });
     }
     [Authorize(Roles = "Manager"), HttpPost, RequestSizeLimit(ImageUploadStore.MaxRequestBytes)]
@@ -109,6 +109,9 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
         await user.EnsureBranchAsync(input.BranchId, ct);
+        var existing = input.Id == 0 ? null : await db.BranchGroups.AsNoTracking().SingleOrDefaultAsync(x => x.Id == input.Id && x.BranchId == input.BranchId, ct);
+        if (input.Id != 0 && existing is null) return NotFound();
+        input.ImagePath = existing?.ImagePath ?? "";
         string? newPath = null;
         try
         {
@@ -133,7 +136,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         ViewData["Groups"] = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         var list = await db.BranchFoods.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow("غذا " + x.FoodId, "قیمت: " + x.Price + " تومان", "/Admin/Menu?branchId=" + branch + "&id=" + x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow("غذا " + x.FoodId, "قیمت: " + x.Price + " تومان", "/Admin/Menu?branchId=" + branch + "&id=" + x.Id, DeleteKind: "BranchFood", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new BranchFoodInput { BranchId = branch ?? 0 } : new BranchFoodInput { Id = x.Id, BranchId = x.BranchId, FoodId = x.FoodId, Price = x.Price, DiscountPrice = x.DiscountPrice, CanSellStandalone = x.CanSellStandalone, IsActive = x.IsActive, Version = Convert.ToBase64String(x.RowVersion) });
     }
     [Authorize(Roles = "Manager"), HttpPost]
@@ -147,7 +150,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         ViewData["Groups"] = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         var list = await db.GroupFoods.AsNoTracking().Where(x => db.BranchFoods.Any(f => f.Id == x.BranchFoodId && f.BranchId == branch)).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow("غذای شعبه " + x.BranchFoodId, "گروه " + x.BranchGroupId, "/Admin/Memberships?branchId=" + branch + "&id=" + x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow("غذای شعبه " + x.BranchFoodId, "گروه " + x.BranchGroupId, "/Admin/Memberships?branchId=" + branch + "&id=" + x.Id, DeleteKind: "GroupFood", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new GroupFoodInput() : new GroupFoodInput { Id = x.Id, BranchGroupId = x.BranchGroupId, BranchFoodId = x.BranchFoodId, SortOrder = x.SortOrder, IsActive = x.IsActive });
     }
     [Authorize(Roles = "Manager"), HttpPost]
@@ -161,7 +164,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         ViewData["Groups"] = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         var list = await db.AllowedAddons.AsNoTracking().Where(x => db.BranchFoods.Any(f => f.Id == x.ParentBranchFoodId && f.BranchId == branch)).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow("غذای اصلی " + x.ParentBranchFoodId, "افزودنی " + x.AddonBranchFoodId, "/Admin/Addons?branchId=" + branch + "&id=" + x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow("غذای اصلی " + x.ParentBranchFoodId, "افزودنی " + x.AddonBranchFoodId, "/Admin/Addons?branchId=" + branch + "&id=" + x.Id, DeleteKind: "AllowedAddon", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new AddonInput() : new AddonInput { Id = x.Id, ParentBranchFoodId = x.ParentBranchFoodId, AddonBranchFoodId = x.AddonBranchFoodId, MaxQuantity = x.MaxQuantity, IsActive = x.IsActive });
     }
     [Authorize(Roles = "Manager"), HttpPost]
@@ -175,7 +178,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         ViewData["Groups"] = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         var list = await db.BranchHours.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow(x.Day.ToString() + " · " + x.Kind, x.Start + " تا " + x.End, "/Admin/Hours?branchId=" + branch + "&id=" + x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow(PersianDisplay.Day(x.Day) + " · " + PersianDisplay.Hours(x.Kind), x.Start + " تا " + x.End, "/Admin/Hours?branchId=" + branch + "&id=" + x.Id, DeleteKind: "BranchHours", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new HoursInput { BranchId = branch ?? 0 } : new HoursInput { Id = x.Id, BranchId = x.BranchId, Kind = x.Kind, Day = x.Day, Start = x.Start, End = x.End, IsActive = x.IsActive });
     }
     [Authorize(Roles = "Manager"), HttpPost]
@@ -189,20 +192,28 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Asia/Tehran").DateTime);
         var selected = date ?? today; var ids = foods.Select(x => x.Id).ToArray();
         var list = await db.DailyCapacities.AsNoTracking().Where(x => ids.Contains(x.BranchFoodId) && x.Date >= today).OrderBy(x => x.Date).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow(foods.Single(f => f.Id == x.BranchFoodId).Food.Name + " · " + x.Date,
-            "کل " + x.Total + " · باقی‌مانده " + x.Remaining + (x.Remaining <= x.WarningThreshold ? " · رو به اتمام" : ""), "/Admin/Capacities?branchId=" + branch + "&foodId=" + x.BranchFoodId + "&date=" + x.Date.ToString("yyyy-MM-dd"))).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow(foods.Single(f => f.Id == x.BranchFoodId).Food.Name + " · " + PersianDisplay.Date(x.Date),
+            "کل " + x.Total + " · باقی‌مانده " + x.Remaining + (x.Remaining <= x.WarningThreshold ? " · رو به اتمام" : ""), "/Admin/Capacities?branchId=" + branch + "&foodId=" + x.BranchFoodId + "&date=" + x.Date.ToString("yyyy-MM-dd"), DeleteKind: "DailyCapacity", DeleteId: x.Id)).ToList();
         var c = list.FirstOrDefault(x => x.BranchFoodId == foodId && x.Date == selected);
         return View(c is null ? new CapacityInput { Date = selected } : new CapacityInput { BranchFoodId = c.BranchFoodId, Date = c.Date, Total = c.Total, WarningThreshold = c.WarningThreshold, IsActive = c.IsActive, Version = Convert.ToBase64String(c.RowVersion) });
     }
     [HttpPost]
-    public async Task<IActionResult> SaveCapacity(CapacityInput input, int? branchId, CancellationToken ct)
-    { if (!ModelState.IsValid) return BadRequest(ModelState); await service.SaveCapacityAsync(input, ct); return RedirectToAction(nameof(Capacities), new { branchId }); }
+    public async Task<IActionResult> SaveCapacity(CapacityInput input, int? branchId, string persianDate, CancellationToken ct)
+    {
+        if (!PersianDisplay.TryDate(persianDate, out var date))
+        {
+            TempData["Error"] = messages["InvalidPersianDate"];
+            return RedirectToAction(nameof(Capacities), new { branchId });
+        }
+        input.Date = date;
+        ModelState.Remove(nameof(input.Date));
+        if (!ModelState.IsValid) return BadRequest(ModelState); await service.SaveCapacityAsync(input, ct); return RedirectToAction(nameof(Capacities), new { branchId }); }
     [Authorize(Roles = "Manager"), HttpGet]
     public async Task<IActionResult> Employees(CancellationToken ct)
     {
         ViewData["Branches"] = await db.Branches.AsNoTracking().ToListAsync(ct);
         ViewData["Staff"] = await db.StaffBranches.AsNoTracking().ToListAsync(ct);
-        return View(await db.Users.AsNoTracking().ToListAsync(ct));
+        return View((await users.GetUsersInRoleAsync("Employee")).ToList());
     }
     [Authorize(Roles = "Manager"), HttpPost]
     public async Task<IActionResult> CreateEmployee(string email, string password, string displayName, CancellationToken ct)
@@ -241,4 +252,39 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
     [Authorize(Roles = "Manager"), HttpGet]
     public async Task<IActionResult> Logs(CancellationToken ct)
     { ViewData["Errors"] = await db.ErrorLogs.AsNoTracking().OrderByDescending(x => x.Id).Take(100).ToListAsync(ct); return View(await db.AuditLogs.AsNoTracking().OrderByDescending(x => x.Id).Take(100).ToListAsync(ct)); }
+
+    [HttpPost]
+    public async Task<IActionResult> Delete(string kind, string id, string? returnUrl, CancellationToken ct)
+    {
+        var target = Url.IsLocalUrl(returnUrl) ? returnUrl! : Url.Action(nameof(Index))!;
+        try
+        {
+            if (kind == "Employee")
+            {
+                if (!user.IsManager) return Forbid();
+                var employee = await users.FindByIdAsync(id);
+                if (employee is null || !await users.IsInRoleAsync(employee, "Employee") || await users.IsInRoleAsync(employee, "Manager"))
+                    throw new ArgumentException(messages["DeleteEmployeeOnly"]);
+                if (await db.StaffBranches.AnyAsync(x => x.UserId == id, ct)) throw new ArgumentException(messages["EmployeeHasBranches"]);
+                await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
+                var result = await users.DeleteAsync(employee);
+                if (!result.Succeeded) throw new ArgumentException(messages["DeleteFailed"]);
+                db.AuditLogs.Add(new AuditLog { ActorId = user.UserId, Action = "DeleteEmployee", EntityType = "AppUser", EntityId = id });
+                await db.SaveChangesAsync(ct);
+                if (transaction is not null) await transaction.CommitAsync(ct);
+            }
+            else
+            {
+                if (!int.TryParse(id, out var entityId)) throw new ArgumentException(messages["DeleteFailed"]);
+                await service.DeleteAsync(kind, entityId, ct);
+            }
+            TempData["Success"] = messages["Deleted"];
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (ArgumentException error) { TempData["Error"] = error.Message; }
+        catch (DbUpdateConcurrencyException) { TempData["Error"] = messages["DeleteConflict"]; }
+        catch (DbUpdateException error) when (error.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 547 })
+        { TempData["Error"] = messages["DeleteHasDependencies"]; }
+        return LocalRedirect(target);
+    }
 }

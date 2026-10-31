@@ -74,7 +74,11 @@ builder.Services.AddAuthorization(o => o.AddPolicy("ManagementApi", p =>
 {
     p.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme); p.RequireRole("Manager", "Employee");
 }));
-builder.Services.AddControllersWithViews(o => o.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute()));
+builder.Services.AddControllersWithViews(o =>
+{
+    o.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute());
+    o.ValueProviderFactories.Insert(0, new AbibiFood.Api.Models.PersianFormValueProviderFactory());
+});
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? []).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddRateLimiter(o =>
 {

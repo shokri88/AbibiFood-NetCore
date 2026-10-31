@@ -40,3 +40,9 @@ Razor: /Account/Login، /Admin/Index، Branches، Foods، Images، Groups، Menu
 - `POST /Admin/SaveGroup`: فرم قبلی به‌اضافه imageFile اختیاری؛ فایل جدید بر ImagePath اولویت دارد.
 
 همه این عملیات Manager و Cookie/AntiForgery لازم دارند. endpointهای API کاتالوگ و schema SQL تغییر نکردند. آپلود از پنل است؛ endpoint بارگذاری برای مشتری ایجاد نشده است.
+
+## تغییر مسیرهای پنل در اصلاح بازخورد
+
+`POST /Admin/Delete` با kind، id و returnUrl محلی و AntiForgery اضافه شد. kindهای مجاز: Branch، Food، FoodImage، BranchGroup، BranchFood، GroupFood، AllowedAddon، BranchHours، DailyCapacity، StaffBranch و Employee. مجوزها و وابستگی‌ها در BUSINESS-RULES آمده‌اند. GET هیچ حذف انجام نمی‌دهد؛ endpoint JSON حذف عمومی ایجاد نشده است.
+
+`POST /Admin/SaveCapacity` در فرم پنل اکنون persianDate با قالب شمسی `۱۴۰۵/۰۸/۰۹` می‌پذیرد؛ تاریخ query و API JSON همچنان ISO است. مقادیر ذخیره‌شده DateOnly/UTC تغییر نمی‌کنند. `SaveGroup` دیگر ImagePath فرم را مبنا نمی‌گیرد؛ مسیر موجود از رکورد سرور خوانده و تنها فایل جدید آن را جایگزین می‌کند. پس از SaveImage کاربر به صفحه تصاویر همان غذا برمی‌گردد.

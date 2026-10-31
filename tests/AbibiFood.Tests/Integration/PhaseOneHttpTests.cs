@@ -145,6 +145,49 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
             Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().FoodImages.AnyAsync(x => x.FoodId == foodId));
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/Admin/Images?foodId=" + foodId + "&id=2147483647")).StatusCode);
+        int branchFoodId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var offering = new BranchFood { FoodId = foodId, BranchId = actor.BranchId, Price = 20000 };
+            db.BranchFoods.Add(offering); await db.SaveChangesAsync(); branchFoodId = offering.Id;
+        }
+        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+        using var capacityPost = await client.PostAsync("/Admin/SaveCapacity", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["BranchFoodId"] = AbibiFood.Api.Models.PersianDisplay.Digits(branchFoodId.ToString()),
+            ["branchId"] = actor.BranchId.ToString(),
+            ["persianDate"] = AbibiFood.Api.Models.PersianDisplay.Date(tomorrow),
+            ["Total"] = "۱۲", ["WarningThreshold"] = "۳", ["IsActive"] = "true",
+            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(imageToken.Groups[1].Value)
+        }));
+        Assert.Equal(HttpStatusCode.Redirect, capacityPost.StatusCode);
+        int capacityId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var capacity = await scope.ServiceProvider.GetRequiredService<AppDbContext>().DailyCapacities.SingleAsync(x => x.BranchFoodId == branchFoodId);
+            Assert.Equal(tomorrow, capacity.Date); Assert.Equal(12, capacity.Total); capacityId = capacity.Id;
+        }
+        var deleteForm = new Dictionary<string, string>
+        {
+            ["kind"] = "DailyCapacity", ["id"] = capacityId.ToString(), ["returnUrl"] = "https://outside.example/"
+        };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Admin/Delete", new FormUrlEncodedContent(deleteForm))).StatusCode);
+        deleteForm["__RequestVerificationToken"] = WebUtility.HtmlDecode(imageToken.Groups[1].Value);
+        using var deletion = await client.PostAsync("/Admin/Delete", new FormUrlEncodedContent(deleteForm));
+        Assert.Equal(HttpStatusCode.Redirect, deletion.StatusCode);
+        Assert.Equal("/", deletion.Headers.Location!.OriginalString);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.False(await db.DailyCapacities.AnyAsync(x => x.Id == capacityId));
+            Assert.True(await db.AuditLogs.AnyAsync(x => x.Action == "DeleteDailyCapacity" && x.EntityId == capacityId.ToString()));
+        }
+        deleteForm["kind"] = "Employee"; deleteForm["id"] = actor.Id;
+        await client.PostAsync("/Admin/Delete", new FormUrlEncodedContent(deleteForm));
+        using (var scope = factory.Services.CreateScope())
+            Assert.NotNull(await scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>().FindByIdAsync(actor.Id));
+
         using var post = await client.PostAsync("/Admin/SaveFood", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["Name"] = "غذا",

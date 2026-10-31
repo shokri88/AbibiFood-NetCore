@@ -134,4 +134,71 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
         if (input.Id == 0) db.BranchHours.Add(entity);
         await AuditAsync("SaveHours", entity, input.BranchId, ct); return entity.Id;
     }
+    // حذف آبشاری نداریم؛ ابتدا وابستگی‌ها بررسی و حذف همراه Audit در تراکنش ثبت می‌شود.
+    public async Task DeleteAsync(string kind, int id, CancellationToken ct)
+    {
+        if (kind != nameof(DailyCapacity)) Manager();
+        object entity;
+        int? branchId = null;
+        bool hasDependencies;
+        switch (kind)
+        {
+            case nameof(Branch):
+                entity = await db.Branches.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                branchId = id;
+                hasDependencies = await db.BranchFoods.AnyAsync(x => x.BranchId == id, ct) ||
+                    await db.BranchGroups.AnyAsync(x => x.BranchId == id, ct) || await db.BranchHours.AnyAsync(x => x.BranchId == id, ct) ||
+                    await db.StaffBranches.AnyAsync(x => x.BranchId == id, ct);
+                if (hasDependencies) throw new ArgumentException("شعبه دارای غذا، گروه، ساعت یا دسترسی کارمند است؛ ابتدا وابستگی‌ها را حذف کنید یا شعبه را غیرفعال کنید.");
+                db.Branches.Remove((Branch)entity); break;
+            case nameof(Food):
+                entity = await db.Foods.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                if (await db.BranchFoods.AnyAsync(x => x.FoodId == id, ct) || await db.FoodImages.AnyAsync(x => x.FoodId == id, ct))
+                    throw new ArgumentException("این غذا تصویر یا عرضه در شعبه دارد؛ ابتدا وابستگی‌ها را حذف کنید یا غذا را غیرفعال کنید.");
+                db.Foods.Remove((Food)entity); break;
+            case nameof(FoodImage):
+                entity = await db.FoodImages.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                db.FoodImages.Remove((FoodImage)entity); break;
+            case nameof(BranchGroup):
+                var group = await db.BranchGroups.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = group; branchId = group.BranchId;
+                if (await db.GroupFoods.AnyAsync(x => x.BranchGroupId == id, ct)) throw new ArgumentException("ابتدا عضویت غذاهای این گروه را حذف کنید.");
+                db.BranchGroups.Remove(group); break;
+            case nameof(BranchFood):
+                var food = await db.BranchFoods.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = food; branchId = food.BranchId;
+                hasDependencies = await db.GroupFoods.AnyAsync(x => x.BranchFoodId == id, ct) ||
+                    await db.AllowedAddons.AnyAsync(x => x.ParentBranchFoodId == id || x.AddonBranchFoodId == id, ct) ||
+                    await db.DailyCapacities.AnyAsync(x => x.BranchFoodId == id, ct);
+                if (hasDependencies) throw new ArgumentException("این غذای شعبه دارای گروه، افزودنی یا ظرفیت است؛ ابتدا وابستگی‌ها را حذف کنید یا آن را غیرفعال کنید.");
+                db.BranchFoods.Remove(food); break;
+            case nameof(GroupFood):
+                var membership = await db.GroupFoods.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = membership;
+                branchId = await db.BranchGroups.Where(x => x.Id == membership.BranchGroupId).Select(x => x.BranchId).SingleAsync(ct);
+                db.GroupFoods.Remove(membership); break;
+            case nameof(AllowedAddon):
+                var addon = await db.AllowedAddons.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = addon;
+                branchId = await db.BranchFoods.Where(x => x.Id == addon.ParentBranchFoodId).Select(x => x.BranchId).SingleAsync(ct);
+                db.AllowedAddons.Remove(addon); break;
+            case nameof(BranchHours):
+                var hours = await db.BranchHours.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = hours; branchId = hours.BranchId;
+                db.BranchHours.Remove(hours); break;
+            case nameof(DailyCapacity):
+                var capacity = await db.DailyCapacities.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = capacity;
+                branchId = await db.BranchFoods.Where(x => x.Id == capacity.BranchFoodId).Select(x => x.BranchId).SingleAsync(ct);
+                await user.EnsureBranchAsync(branchId.Value, ct);
+                if (capacity.Reserved != 0 || capacity.Sold != 0) throw new ArgumentException("ظرفیت دارای رزرو یا فروش قابل حذف نیست؛ در صورت نیاز آن را غیرفعال کنید.");
+                db.DailyCapacities.Remove(capacity); break;
+            case nameof(StaffBranch):
+                var staff = await db.StaffBranches.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                entity = staff; branchId = staff.BranchId;
+                db.StaffBranches.Remove(staff); break;
+            default: throw new ArgumentException("نوع رکورد برای حذف مجاز نیست.");
+        }
+        await AuditAsync("Delete" + kind, entity, branchId, ct);
+    }
 }

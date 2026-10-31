@@ -1,5 +1,25 @@
 // جست‌وجو و مرتب‌سازی فقط روی ردیف‌های همین صفحه انجام می‌شود؛ مجوزها در سرور کنترل می‌شوند.
 (() => {
+    const faDigits = value => value.replace(/[0-9]/g, digit => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+    // مقدار option/hidden و URLها تغییر نمی‌کند؛ فقط متن قابل مشاهده فارسی می‌شود.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => node.parentElement.closest('script,style,pre,code,textarea,[data-no-localize]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    });
+    while (walker.nextNode()) walker.currentNode.nodeValue = faDigits(walker.currentNode.nodeValue);
+    document.querySelectorAll('input[type=number],input[type=time]').forEach(input => {
+        const numeric = input.type === 'number';
+        input.type = 'text'; input.inputMode = numeric ? 'decimal' : 'numeric';
+        input.setAttribute(numeric ? 'data-number-field' : 'data-time-field', '');
+        input.value = faDigits(input.value);
+        input.addEventListener('input', () => {
+            const position = input.selectionStart;
+            input.value = faDigits(input.value);
+            if (position !== null) input.setSelectionRange(position, position);
+        });
+    });
+    document.querySelectorAll('form[data-confirm-delete]').forEach(form => form.addEventListener('submit', event => {
+        if (!window.confirm(form.dataset.confirmDelete)) event.preventDefault();
+    }));
     const path = location.pathname.toLowerCase().replace(/\/$/, '') || '/admin/index';
     const current = path === '/admin/images' ? '/admin/foods' : path;
     document.querySelectorAll('.admin-nav a').forEach(link => {

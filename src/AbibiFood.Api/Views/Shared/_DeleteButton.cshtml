@@ -1,0 +1,8 @@
+@model DeleteButton
+@inject AbibiFood.Api.Services.Messages Messages
+<form asp-controller="Admin" asp-action="Delete" method="post" data-confirm-delete="@Messages["ConfirmDelete"]">
+    <input type="hidden" name="kind" value="@Model.Kind">
+    <input type="hidden" name="id" value="@Model.Id">
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl">
+    <button type="submit" class="btn btn-outline-danger btn-sm">حذف</button>
+</form>

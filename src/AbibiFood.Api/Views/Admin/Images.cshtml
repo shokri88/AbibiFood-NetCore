@@ -1,7 +1,7 @@
 @model ImageInput
 @{ViewData["Title"]="تصاویر «" + ViewData["FoodName"] + "»";}
 <a asp-action="Foods" asp-route-id="@Model.FoodId" class="btn btn-outline-primary mb-3">بازگشت به غذا</a>
-<section class="admin-card">
+<section class="admin-card mb-4">
     <h2 class="card-heading">@(Model.Id == 0 ? "افزودن تصویر" : "ویرایش تصویر")</h2>
     <form asp-action="SaveImage" method="post" enctype="multipart/form-data">
         <input asp-for="Id" type="hidden"><input asp-for="FoodId" type="hidden">
@@ -14,7 +14,20 @@
             </div>
             <div class="col-12 col-md-4"><label asp-for="SortOrder" class="form-label">ترتیب نمایش</label><input asp-for="SortOrder" class="form-control" type="number"></div>
             <div class="col-12 col-md-4"><label class="form-check check-field"><input asp-for="IsActive" class="form-check-input">تصویر فعال</label></div>
-            <div class="col-12"><button class="btn btn-primary">ذخیره تصویر</button></div>
+            <div class="col-12 form-footer"><button class="btn btn-primary">ذخیره تصویر</button></div>
         </div>
     </form>
+</section>
+
+<section class="admin-card">
+    <h2 class="card-heading">تصاویر ثبت‌شده</h2>
+    @if(Model.Id > 0){<a asp-action="Images" asp-route-foodId="@Model.FoodId" class="btn btn-outline-primary mb-3">تصویر جدید</a>}
+    <div class="table-responsive"><table class="table"><thead><tr><th data-no-sort>تصویر</th><th>ترتیب</th><th>وضعیت</th><th data-no-sort>عملیات</th></tr></thead><tbody>
+    @foreach(var image in (ViewData["Images"] as List<FoodImage> ?? [])){
+        <tr><td><img src="@image.Path" class="image-thumb" alt="تصویر غذا" loading="lazy"></td><td>@image.SortOrder</td><td>@(image.IsActive ? "فعال" : "غیرفعال")</td><td><div class="row-actions">
+        <a asp-action="Images" asp-route-foodId="@Model.FoodId" asp-route-id="@image.Id" class="btn btn-outline-primary btn-sm">ویرایش</a>
+        <partial name="_DeleteButton" model='new DeleteButton("FoodImage", image.Id.ToString(), "/Admin/Images?foodId=" + Model.FoodId)'/>
+        </div></td></tr>
+    }
+    </tbody></table></div>
 </section>

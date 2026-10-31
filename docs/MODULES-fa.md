@@ -41,3 +41,13 @@
 - `Views/Shared/_Rows.cshtml`: کارت مستقل جدول؛ Layout منوی گروه‌بندی‌شده و استایل‌های مشترک را بارگذاری می‌کند.
 - `wwwroot/assets/js/admin-ui.js`: فیلتر، مرتب‌سازی با Intl.Collator فارسی، حالت خالی و تعداد نتایج، منوی فعال و پیش‌نمایش تصویر. وابستگی خارجی جدید ندارد.
 - `wwwroot/assets/css/admin.css`: رنگ‌ها و اجزای ظاهری پنل؛ تنظیم فونت همچنان در vazir.css مستقل است.
+
+## اجزای اصلاح بازخورد پنل
+
+- `CatalogService.DeleteAsync`: فهرست صریح انواع قابل حذف، کنترل نقش/شعبه، وابستگی و ظرفیت مصرف‌شده، سپس SaveWithAuditAsync. بدون reflection و بدون حذف آبشاری.
+- `AdminController.Delete`: نقطه ورود POST پنل؛ حذف حساب کارمند از Identity با Audit، تبدیل خطای وابستگی/هم‌زمانی به پیام و redirect محلی. حذف کاتالوگ را به سرویس مشترک می‌سپارد.
+- `Models/AdminRow` و `_Rows` لینک تصویر و شناسه/نوع حذف را همراه ردیف حمل می‌کنند؛ `_DeleteButton` فرم مستقل AntiForgery با تأیید کاربر است.
+- `Models/PersianDisplay`: قالب تاریخ/زمان تهران، تبدیل ارقام و parse تاریخ شمسی با PersianCalendar؛ نام فارسی روز هفته و نوع ساعت.
+- `Models/PersianFormValueProvider`: فقط فرم Admin و فهرست صریح فیلدهای عدد/ساعت؛ از تغییر رمز یا payload API جلوگیری می‌کند. Factory در MVC ثبت شده است.
+- `admin-ui.js`: ارقام نمایشی و ورودی عدد/ساعت را فارسی می‌کند؛ مقادیر hidden/option و href تغییر نمی‌کنند. نمایش فنی pre/code و فیلدهای دارای data-no-localize خام باقی می‌مانند.
+- `admin-validation.js`: اعتبارسنجی عدد و ساعت فارسی و قالب تاریخ شمسی؛ اعتبار تقویمی کامل در سرور انجام می‌شود.
