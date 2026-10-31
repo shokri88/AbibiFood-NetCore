@@ -1,0 +1,41 @@
+/* فونت مشترک تمام صفحات بک‌اند؛ تغییر خانواده و وزن‌ها فقط از این فایل انجام شود. */
+@font-face {
+    font-family: "Vazir";
+    src: url("../fonts/vazir/Vazir-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazir";
+    src: url("../fonts/vazir/Vazir-Medium.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazir";
+    src: url("../fonts/vazir/Vazir-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --abibi-font-family: "Vazir", Tahoma, sans-serif;
+    --bs-font-sans-serif: var(--abibi-font-family);
+    --bs-font-monospace: var(--abibi-font-family);
+    --bs-body-font-family: var(--abibi-font-family);
+}
+
+body,
+button,
+input,
+select,
+textarea,
+optgroup,
+option {
+    font-family: var(--abibi-font-family);
+}

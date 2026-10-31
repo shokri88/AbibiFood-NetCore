@@ -23,3 +23,7 @@
 ## محدوده این مخزن
 
 API، پنل Razor، Identity، EF و SQL؛ API و پنل باید از CatalogService مشترک استفاده کنند.
+
+## قرارداد فونت
+
+فونت همه صفحات بک‌اند (پنل و ورود) Vazir است؛ تنظیم مرکزی در `src/AbibiFood.Api/wwwroot/assets/css/vazir.css` و فایل‌ها در `assets/fonts/vazir/` هستند. Hasti فقط برای فرانت‌اند مشتری است. CSS هستی را دوباره به Layout بک‌اند وصل نکنید.
