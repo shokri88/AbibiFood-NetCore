@@ -116,7 +116,35 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
             ["__RequestVerificationToken"] = WebUtility.HtmlDecode(token.Groups[1].Value)
         }));
         Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Admin/Index")).StatusCode);
+        // تمام صفحات پنل با Layout مشترک و تصاویر وابسته به غذا باید قابل رندر باشند.
+        foreach (var page in new[] { "Index", "Branches", "Foods", "Groups", "Menu", "Memberships", "Addons", "Hours", "Capacities", "Employees", "Logs" })
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/Admin/" + page)).StatusCode);
+        int foodId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var food = new Food { Name = "غذای تصاویر", Title = "عنوان" };
+            db.Foods.Add(food); await db.SaveChangesAsync(); foodId = food.Id;
+        }
+        using var images = await client.GetAsync("/Admin/Images?foodId=" + foodId);
+        Assert.Equal(HttpStatusCode.OK, images.StatusCode);
+        var imageHtml = await images.Content.ReadAsStringAsync();
+        Assert.Contains("multipart/form-data", imageHtml);
+        Assert.Contains("type=\"file\"", imageHtml);
+        var imageToken = Regex.Match(imageHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        using var invalidUpload = new MultipartFormDataContent();
+        invalidUpload.Add(new StringContent(foodId.ToString()), "FoodId");
+        invalidUpload.Add(new StringContent(WebUtility.HtmlDecode(imageToken.Groups[1].Value)), "__RequestVerificationToken");
+        var fakeImage = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("<script>invalid</script>"));
+        fakeImage.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        invalidUpload.Add(fakeImage, "imageFile", "fake.png");
+        using var rejectedUpload = await client.PostAsync("/Admin/SaveImage", invalidUpload);
+        Assert.Equal(HttpStatusCode.Redirect, rejectedUpload.StatusCode);
+        Assert.StartsWith("/Admin/Images?", rejectedUpload.Headers.Location!.OriginalString);
+        using (var scope = factory.Services.CreateScope())
+            Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().FoodImages.AnyAsync(x => x.FoodId == foodId));
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/Admin/Images?foodId=" + foodId + "&id=2147483647")).StatusCode);
         using var post = await client.PostAsync("/Admin/SaveFood", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["Name"] = "غذا",

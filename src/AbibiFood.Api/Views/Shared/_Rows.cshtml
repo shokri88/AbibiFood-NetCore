@@ -1,2 +1,8 @@
 @{var rows=ViewData["Rows"] as List<AdminRow> ?? [];}
-<div class="table-responsive mt-4"><table class="table align-middle"><thead><tr><th>عنوان</th><th>جزئیات</th><th></th></tr></thead><tbody>@foreach(var row in rows){<tr><td>@row.Title</td><td>@row.Details</td><td><a href="@row.EditUrl" class="btn btn-outline-primary btn-sm">ویرایش</a></td></tr>}@if(rows.Count==0){<tr><td colspan="3">هنوز رکوردی تعریف نشده است.</td></tr>}</tbody></table></div>
+<section class="admin-card grid-card">
+    <h2 class="card-heading">فهرست رکوردها <span class="badge text-bg-light">@rows.Count</span></h2>
+    <div class="table-responsive"><table class="table align-middle">
+        <thead><tr><th>عنوان</th><th>جزئیات</th><th data-no-sort>عملیات</th></tr></thead>
+        <tbody>@foreach(var row in rows){<tr><td>@row.Title</td><td>@row.Details</td><td><a href="@row.EditUrl" class="btn btn-outline-primary btn-sm">ویرایش</a></td></tr>}</tbody>
+    </table></div>
+</section>

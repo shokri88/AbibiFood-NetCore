@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AbibiFood.Api.Controllers;
 
 [Authorize(Roles = "Manager,Employee")]
-public sealed class AdminController(AppDbContext db, CatalogService service, IUserScope user, Messages messages, UserManager<AppUser> users) : Controller
+public sealed class AdminController(AppDbContext db, CatalogService service, IUserScope user, Messages messages, UserManager<AppUser> users, ImageUploadStore uploads) : Controller
 {
     private async Task<int?> SelectBranch(int? branchId, CancellationToken ct)
     {
@@ -47,21 +47,52 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
     {
         var list = await db.Foods.AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
         ViewData["Rows"] = list.Select(x => new AdminRow(x.Name, x.Description + (x.IsActive ? " · فعال" : " · غیرفعال"), "/Admin/Foods?id=" + x.Id)).ToList();
+        ViewData["Images"] = await db.FoodImages.AsNoTracking().Where(x => x.FoodId == id).OrderBy(x => x.SortOrder).ToListAsync(ct);
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new FoodInput() : new FoodInput { Id = x.Id, Name = x.Name, Title = x.Title, Description = x.Description, IsActive = x.IsActive });
     }
     [Authorize(Roles = "Manager"), HttpPost]
     public async Task<IActionResult> SaveFood(FoodInput input, CancellationToken ct)
-    { if (!ModelState.IsValid) return BadRequest(ModelState); await service.SaveFoodAsync(input, ct); return RedirectToAction(nameof(Foods)); }
+    { if (!ModelState.IsValid) return BadRequest(ModelState); var id = await service.SaveFoodAsync(input, ct); TempData["Success"] = messages["Saved"]; return RedirectToAction(nameof(Foods), new { id }); }
     [Authorize(Roles = "Manager"), HttpGet]
-    public async Task<IActionResult> Images(int? id, CancellationToken ct)
+    public async Task<IActionResult> Images(int? foodId, int? id, CancellationToken ct)
     {
-        ViewData["Foods"] = await db.Foods.AsNoTracking().ToListAsync(ct); var list = await db.FoodImages.AsNoTracking().ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow("غذا " + x.FoodId, x.Path, "/Admin/Images?id=" + x.Id)).ToList(); var x = list.FirstOrDefault(x => x.Id == id);
-        return View(x is null ? new ImageInput() : new ImageInput { Id = x.Id, FoodId = x.FoodId, Path = x.Path, SortOrder = x.SortOrder, IsActive = x.IsActive });
+        var image = id.HasValue ? await db.FoodImages.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) : null;
+        var selectedFood = foodId ?? image?.FoodId;
+        if (!selectedFood.HasValue) return RedirectToAction(nameof(Foods));
+        var food = await db.Foods.AsNoTracking().SingleOrDefaultAsync(x => x.Id == selectedFood, ct);
+        if (food is null || (id.HasValue && (image is null || image.FoodId != food.Id))) return NotFound();
+        ViewData["FoodName"] = food.Name;
+        return View(image is null ? new ImageInput { FoodId = food.Id } : new ImageInput
+        { Id = image.Id, FoodId = image.FoodId, Path = image.Path, SortOrder = image.SortOrder, IsActive = image.IsActive });
     }
-    [Authorize(Roles = "Manager"), HttpPost]
-    public async Task<IActionResult> SaveImage(ImageInput input, CancellationToken ct)
-    { if (!ModelState.IsValid) return BadRequest(ModelState); await service.SaveImageAsync(input, ct); return RedirectToAction(nameof(Images)); }
+    [Authorize(Roles = "Manager"), HttpPost, RequestSizeLimit(ImageUploadStore.MaxRequestBytes)]
+    public async Task<IActionResult> SaveImage(ImageInput input, IFormFile? imageFile, CancellationToken ct)
+    {
+        var existing = input.Id == 0 ? null : await db.FoodImages.AsNoTracking().SingleOrDefaultAsync(x => x.Id == input.Id, ct);
+        if (!await db.Foods.AnyAsync(x => x.Id == input.FoodId, ct) ||
+            (input.Id != 0 && (existing is null || existing.FoodId != input.FoodId))) return NotFound();
+        // مسیر از فایل جدید یا رکورد فعلی خوانده می‌شود، نه hidden input قابل دست‌کاری.
+        input.Path = existing?.Path ?? "";
+        ModelState.Remove(nameof(input.Path));
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        string? newPath = null;
+        try
+        {
+            if (imageFile is not null) newPath = await uploads.SaveAsync(imageFile, ct);
+            if (newPath is null && existing is null) throw new ArgumentException(messages["ImageRequired"]);
+            input.Path = newPath ?? input.Path;
+            await service.SaveImageAsync(input, ct);
+        }
+        catch (ArgumentException error)
+        {
+            if (newPath is not null) uploads.DeleteNewFile(newPath);
+            TempData["Error"] = error.Message;
+            return RedirectToAction(nameof(Images), new { foodId = input.FoodId, id = input.Id == 0 ? (int?)null : input.Id });
+        }
+        catch { if (newPath is not null) uploads.DeleteNewFile(newPath); throw; }
+        TempData["Success"] = messages["Saved"];
+        return RedirectToAction(nameof(Foods), new { id = input.FoodId });
+    }
     [Authorize(Roles = "Manager"), HttpGet]
     public async Task<IActionResult> Groups(int? branchId, int? id, CancellationToken ct)
     {
@@ -73,9 +104,27 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["Rows"] = list.Select(x => new AdminRow(x.Title, x.ImagePath, "/Admin/Groups?branchId=" + branch + "&id=" + x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new GroupInput { BranchId = branch ?? 0 } : new GroupInput { Id = x.Id, BranchId = x.BranchId, Title = x.Title, ImagePath = x.ImagePath, SortOrder = x.SortOrder, IsActive = x.IsActive });
     }
-    [Authorize(Roles = "Manager"), HttpPost]
-    public async Task<IActionResult> SaveGroup(GroupInput input, int? branchId, CancellationToken ct)
-    { if (!ModelState.IsValid) return BadRequest(ModelState); await service.SaveGroupAsync(input, ct); return RedirectToAction(nameof(Groups), new { branchId }); }
+    [Authorize(Roles = "Manager"), HttpPost, RequestSizeLimit(ImageUploadStore.MaxRequestBytes)]
+    public async Task<IActionResult> SaveGroup(GroupInput input, int? branchId, IFormFile? imageFile, CancellationToken ct)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        await user.EnsureBranchAsync(input.BranchId, ct);
+        string? newPath = null;
+        try
+        {
+            if (imageFile is not null) { newPath = await uploads.SaveAsync(imageFile, ct); input.ImagePath = newPath; }
+            await service.SaveGroupAsync(input, ct);
+        }
+        catch (ArgumentException error)
+        {
+            if (newPath is not null) uploads.DeleteNewFile(newPath);
+            TempData["Error"] = error.Message;
+            return RedirectToAction(nameof(Groups), new { branchId = input.BranchId, id = input.Id });
+        }
+        catch { if (newPath is not null) uploads.DeleteNewFile(newPath); throw; }
+        TempData["Success"] = messages["Saved"];
+        return RedirectToAction(nameof(Groups), new { branchId = input.BranchId });
+    }
     [Authorize(Roles = "Manager"), HttpGet]
     public async Task<IActionResult> Menu(int? branchId, int? id, CancellationToken ct)
     {

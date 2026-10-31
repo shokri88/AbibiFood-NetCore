@@ -1,3 +1,20 @@
 @model ImageInput
-@{ViewData["Title"]="تصاویر غذا";}
-<section class="admin-card"><form asp-action="SaveImage" method="post"><div asp-validation-summary="All" class="text-danger"></div><input asp-for="Id" type="hidden"><input type="hidden" name="branchId" value="@ViewData["BranchId"]"><div class="row g-3"><div class="col-md-6"><label asp-for="FoodId" class="form-label">غذا</label><select asp-for="FoodId" class="form-select">@foreach(var option in (ViewData["Foods"] as List<Food> ?? [])){<option value="@option.Id">@option.Name</option>}</select></div><div class="col-md-6"><label asp-for="Path" class="form-label">مسیر تصویر مانند /assets/image/logo.webp</label><input asp-for="Path" type="text" class="form-control"><span asp-validation-for="Path" class="text-danger"></span></div><div class="col-md-6"><label asp-for="SortOrder" class="form-label">ترتیب</label><input asp-for="SortOrder" type="number" class="form-control" step="any"><span asp-validation-for="SortOrder" class="text-danger"></span></div><div class="col-md-6"><label class="form-check"><input asp-for="IsActive" class="form-check-input">فعال</label></div><div class="col-12"><button class="btn btn-primary">ذخیره</button></div></div></form><partial name="_Rows"/></section>
+@{ViewData["Title"]="تصاویر «" + ViewData["FoodName"] + "»";}
+<a asp-action="Foods" asp-route-id="@Model.FoodId" class="btn btn-outline-primary mb-3">بازگشت به غذا</a>
+<section class="admin-card">
+    <h2 class="card-heading">@(Model.Id == 0 ? "افزودن تصویر" : "ویرایش تصویر")</h2>
+    <form asp-action="SaveImage" method="post" enctype="multipart/form-data">
+        <input asp-for="Id" type="hidden"><input asp-for="FoodId" type="hidden">
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <label for="imageFile" class="form-label">انتخاب تصویر از سیستم</label>
+                <input type="file" id="imageFile" name="imageFile" class="form-control" accept="image/png,image/jpeg,image/webp" data-image-upload required="@(Model.Id == 0)">
+                <p class="small text-secondary mt-2">PNG، JPEG یا WebP؛ حداکثر ۵ مگابایت. هنگام ویرایش، انتخاب فایل اختیاری است.</p>
+                @if(Model.Id > 0){<img src="@Model.Path" alt="تصویر فعلی غذا" class="image-preview">}
+            </div>
+            <div class="col-12 col-md-4"><label asp-for="SortOrder" class="form-label">ترتیب نمایش</label><input asp-for="SortOrder" class="form-control" type="number"></div>
+            <div class="col-12 col-md-4"><label class="form-check check-field"><input asp-for="IsActive" class="form-check-input">تصویر فعال</label></div>
+            <div class="col-12"><button class="btn btn-primary">ذخیره تصویر</button></div>
+        </div>
+    </form>
+</section>

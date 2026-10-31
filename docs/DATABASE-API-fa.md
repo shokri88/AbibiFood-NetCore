@@ -31,3 +31,12 @@
 قرارداد ورودی دقیق: `Application/Models/CatalogInputs.cs`. برای ویرایش BranchFood/Capacity، Version با Base64 از RowVersion لازم است؛ در فرم Razor hidden field است. ظرفیت با BranchFoodId+Date upsert می‌شود. شناسه گروه و غذا نباید بین شعبه‌ها مخلوط شوند. POSTها فعلاً 200 با id برمی‌گردانند؛ API versioning هنوز اضافه نشده است.
 
 Razor: /Account/Login، /Admin/Index، Branches، Foods، Images، Groups، Menu، Memberships، Addons، Capacities، Hours، Employees و Logs. پنل AntiForgery می‌خواهد؛ bearer API از AntiForgery معاف است و cookie پنل برای ManagementApi معتبر نیست.
+
+## مسیرهای پنل تصاویر
+
+- `GET /Admin/Images?foodId={id}`: فرم تصویر جدید در محدوده یک غذا؛ بدون شناسه به مخزن غذا می‌رود.
+- `GET /Admin/Images?foodId={id}&id={imageId}`: ویرایش تصویر همان غذا؛ رابطه نامعتبر 404.
+- `POST /Admin/SaveImage`: multipart با Id، FoodId، SortOrder، IsActive و imageFile؛ برای رکورد جدید فایل لازم است، در ویرایش اختیاری. Path ارسالی کاربر نادیده گرفته می‌شود.
+- `POST /Admin/SaveGroup`: فرم قبلی به‌اضافه imageFile اختیاری؛ فایل جدید بر ImagePath اولویت دارد.
+
+همه این عملیات Manager و Cookie/AntiForgery لازم دارند. endpointهای API کاتالوگ و schema SQL تغییر نکردند. آپلود از پنل است؛ endpoint بارگذاری برای مشتری ایجاد نشده است.

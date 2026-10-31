@@ -31,3 +31,13 @@
 `Program.cs` در `JwtBearerEvents.OnTokenValidated`، موجودبودن/فعال‌بودن حساب و نقش فعلی Identity را قبل از مجوزدهی ManagementApi بررسی می‌کند. کنترل middleware پس از UseAuthentication برای Cookie باقی می‌ماند؛ Bearer ممکن است هنگام policy احراز هویت شود. این تفاوت علت اصلاح این بخش است.
 
 `PhaseOneFactory` میزبان واقعی ASP.NET با جایگزینی SQL توسط InMemory و رازهای تصادفی موقت تست می‌سازد؛ `PhaseOneHttpTests` ورود API/Cookie و مرز مجوزها را بررسی می‌کند. `SqlServerAcceptanceTests` مسیر مستقل و اختیاری SQL را دارد؛ نبود SQL پیش‌فرض Skipped و در حالت الزامی شکست است. این کلاس‌ها کد تولید نیستند.
+
+## اجزای بهبود پنل
+
+- `Api/Services/ImageUploadStore.cs`: دریافت فایل محدود، کنترل MIME و امضای PNG/JPEG/WebP، تولید نام تصادفی، نوشتن در `wwwroot/uploads/catalog` و حذف فایل جدید در شکست ذخیره رکورد. وابسته به IWebHostEnvironment و Messages؛ در Program به‌صورت Scoped ثبت شده است.
+- `AdminController.Images/SaveImage`: مسیر فرزند غذا؛ کنترل وجود غذا و مالکیت تصویر، حفظ مسیر قبلی هنگام ویرایش بدون فایل. SaveImageAsync سرویس کاتالوگ همچنان مسئول ثبت رکورد و Audit است.
+- `AdminController.SaveGroup`: بارگذاری اختیاری تصویر گروه؛ مسیر فایل جدید به SaveGroupAsync داده می‌شود؛ قواعد شعبه حفظ شده‌اند.
+- `Views/Admin/Foods.cshtml` و `Images.cshtml`: جدول تصاویر غذا و فرم multipart با Browse/پیش‌نمایش، ترتیب و فعال‌بودن.
+- `Views/Shared/_Rows.cshtml`: کارت مستقل جدول؛ Layout منوی گروه‌بندی‌شده و استایل‌های مشترک را بارگذاری می‌کند.
+- `wwwroot/assets/js/admin-ui.js`: فیلتر، مرتب‌سازی با Intl.Collator فارسی، حالت خالی و تعداد نتایج، منوی فعال و پیش‌نمایش تصویر. وابستگی خارجی جدید ندارد.
+- `wwwroot/assets/css/admin.css`: رنگ‌ها و اجزای ظاهری پنل؛ تنظیم فونت همچنان در vazir.css مستقل است.

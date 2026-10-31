@@ -20,6 +20,7 @@ if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32
 builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlServer(connection));
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 builder.Services.AddHttpContextAccessor(); builder.Services.AddScoped<IUserScope, CurrentUser>();
+builder.Services.AddScoped<ImageUploadStore>();
 builder.Services.AddScoped<CatalogService>(); builder.Services.AddSingleton<Messages>();
 builder.Services.AddIdentity<AppUser, IdentityRole>(o =>
 {

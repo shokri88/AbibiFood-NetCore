@@ -70,3 +70,9 @@ FROM sys.tables WHERE is_ms_shipped = 0 ORDER BY name;
 اگر History خالی است و فقط جدول History مانده، پس از `git status` و `git pull --ff-only origin main`، اتصال محیط را مجدداً تنظیم و همان `dotnet ef database update --project src/AbibiFood.Infrastructure --startup-project src/AbibiFood.Api` اجرا شود. دیتابیس، فایل‌های mdf/ldf و جدول History را حذف نکنید. اگر History دارای رکورد است یا جدول‌های دیگری باقی مانده‌اند، خروجی بررسی شود؛ Migration را حذف یا به‌زور اجرا نکنید.
 
 `IdentityForeignKeySchemaTests` نوع SQL ستون‌های FK و کلید مقصد را هم در مدل SQL provider و هم عملیات Migration بررسی می‌کند و اتصال به SQL نمی‌خواهد. موفقیت این تست جای اجرای واقعی Migration روی SQL را نمی‌گیرد. retry موفق مالک پس از اصلاح هنوز گزارش نشده است.
+
+## استقرار بارگذاری تصاویر پنل
+
+پس از Pull این تغییر، Build و راه‌اندازی مجدد کافی است؛ Migration تازه ندارد. پوشه `wwwroot/uploads/catalog` باید قابل نوشتن توسط حساب برنامه باشد و در انتشار بعدی حفظ شود. روی میزبان کانتینری آن را به volume پایدار متصل کنید. Backup فایل‌ها را همراه Backup SQL نگه دارید؛ SQL به‌تنهایی خود تصویر را ندارد. سقف درخواست reverse proxy/IIS باید حداقل سقف `ImageUploadStore.MaxRequestBytes` باشد؛ سقف پایین‌تر می‌تواند پیش از کنترل برنامه پاسخ 413 بدهد.
+
+پذیرش دستی روی محیط SQL مالک: یک غذا بسازید، PNG معتبر بارگذاری کنید، نمایش و مسیر عمومی آن را بررسی کنید، ترتیب/وضعیت را بدون فایل تغییر دهید، فایل را جایگزین کنید و ثبت FoodImages/AuditLogs را ببینید. همین مسیر را برای تصویر گروه بررسی کنید. در مرورگر دسکتاپ و موبایل فرم‌ها، فیلتر و جهت‌های سورت جدول را بررسی کنید. تست‌های خودکار این مرحله جای این آزمون SQL/بصری را نمی‌گیرند.
