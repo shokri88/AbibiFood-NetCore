@@ -52,3 +52,21 @@ dotnet test --no-build --no-restore --filter FullyQualifiedName~SqlServerAccepta
 با `ABIBI_REQUIRE_SQL=true` فقدان اتصال، شکست تست است؛ بدون آن و بدون اتصال، تست صریحاً Skipped می‌شود. تست نام دیتابیس را با `AbibiAcceptance_` و GUID جدید جایگزین می‌کند، migration را اجرا و نسخه SQL را در خروجی تست ثبت می‌کند. فقط دیتابیس تصادفی همین اجرا پس از migration موفق پاک می‌شود؛ اگر migration نیمه‌کاره شکست خورد، دیتابیس موقت ممکن است برای بررسی باقی بماند. هرگز SQL عملیاتی را برای تست معرفی نکنید.
 
 گزینه جایگزین: پس از رفع Billing، workflow دستی `sql-integration-acceptance` در Actions اجرا شود. این workflow کانتینر SQL Server 2022 با رمز تصادفی همان اجرا می‌سازد، اتصال را فقط به loopback می‌بندد، تست SQL را اجباری می‌کند و TRX را artifact می‌گذارد؛ در پایان کانتینر پاک می‌شود. tag تصویر `2022-latest` است، نسخه دقیق CU ثابت نیست و تست ProductVersion را ثبت می‌کند. workflow این جلسه اجرا نشده است؛ هیچ credential عملیاتی نیاز ندارد. runner هر دو workflow بک‌اند `ubuntu-24.04` است. این تنظیم runner مشکل Billing را رفع نمی‌کند.
+
+
+## بازیابی خطای 1753 در Migration اولیه (۲۰۲۶-۱۰-۳۱)
+
+اجرای واقعی مالک روی SQL Server نسخه `16.0.1210.3` هنگام ساخت `StaffBranches` شکست خورد: `UserId` با `nvarchar(500)` به `AspNetUsers.Id` با `nvarchar(450)` ارجاع می‌داد. در مدل، Migration اولیه و metadata/snapshot، فقط طول همین FK به ۴۵۰ اصلاح شد. Migration جدیدِ بعدی این شکست را حل نمی‌کند، چون Migration اولیه هنوز قابل اجرا نبود. هیچ دیتابیس یا داده‌ای توسط این اصلاح حذف نمی‌شود.
+
+قبل از تلاش مجدد روی دیتابیس تازه، در SSMS بررسی کنید:
+
+```sql
+USE [AbibiFood];
+SELECT MigrationId, ProductVersion FROM dbo.__EFMigrationsHistory;
+SELECT SCHEMA_NAME(schema_id) AS SchemaName, name
+FROM sys.tables WHERE is_ms_shipped = 0 ORDER BY name;
+```
+
+اگر History خالی است و فقط جدول History مانده، پس از `git status` و `git pull --ff-only origin main`، اتصال محیط را مجدداً تنظیم و همان `dotnet ef database update --project src/AbibiFood.Infrastructure --startup-project src/AbibiFood.Api` اجرا شود. دیتابیس، فایل‌های mdf/ldf و جدول History را حذف نکنید. اگر History دارای رکورد است یا جدول‌های دیگری باقی مانده‌اند، خروجی بررسی شود؛ Migration را حذف یا به‌زور اجرا نکنید.
+
+`IdentityForeignKeySchemaTests` نوع SQL ستون‌های FK و کلید مقصد را هم در مدل SQL provider و هم عملیات Migration بررسی می‌کند و اتصال به SQL نمی‌خواهد. موفقیت این تست جای اجرای واقعی Migration روی SQL را نمی‌گیرد. retry موفق مالک پس از اصلاح هنوز گزارش نشده است.

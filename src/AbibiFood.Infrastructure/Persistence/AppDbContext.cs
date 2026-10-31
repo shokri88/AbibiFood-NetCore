@@ -62,5 +62,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
         b.Entity<ErrorLog>().HasIndex(x => x.OccurredAt);
         foreach (var property in b.Model.GetEntityTypes().Where(e => !e.Name.Contains("Identity")).SelectMany(e => e.GetProperties()).Where(p => p.ClrType == typeof(string)))
             property.SetMaxLength(property.Name is "Details" or "StackTrace" or "Message" ? 8000 : property.Name == "Description" ? 4000 : 500);
+        // این FK باید با کلید nvarchar(450) در Identity برابر باشد؛ قاعده عمومی متن‌ها کافی نیست.
+        b.Entity<StaffBranch>().Property(x => x.UserId).HasMaxLength(450);
     }
 }

@@ -22,3 +22,10 @@ Smoke میزبان بدون SQL: /health/live=200، /Account/Login=200، /Admin/
 تست `Integration/SqlServerAcceptanceTests.cs` برای migration، ظرفیت مشترک افزودنی/مستقل، RowVersion، unique index و rollback Audit نوشته شده اما اینجا اجرا نشده است. workflow دستی `sql-integration.yml` محیط SQL موقت می‌سازد؛ موفقیت اجرای آن هنوز تأیید نشده است.
 
 اجرای اولیه CI بک‌اند در GitHub (run `41122471162`، مبنا `c36d134e`) پیش از شروع Job به‌دلیل Billing مسدود شده؛ این شکست، نتیجه Build کد نیست. رفع محدودیت حساب بر عهده مالک است.
+
+
+## گزارش SQL واقعی مالک — ۲۰۲۶-۱۰-۳۱
+
+مالک دیتابیس لوکال را با فایل‌های داده و لاگ در پوشه انتخابی خود ساخت. Restore ابزار EF نسخه 10.0.14 موفق گزارش شد. دستور database update، Build موفق داشت اما Migration `20261030194953_InitialCatalogAndIdentity` هنگام ساخت FK کارکنان با خطای 1753 شکست خورد؛ این گزارش، موفقیت Migration نیست. طول FK مدل و Migration اولیه از ۵۰۰ به ۴۵۰ هماهنگ شد؛ تأیید retry روی SQL مالک هنوز باقی است. جزئیات و بازیابی در SETUP-DEPLOY آمده است.
+
+اعتبارسنجی اصلاح: Build با صفر خطا/هشدار، ۱۹ تست موفق و یک SQL Skipped. دو تست schema پیش از اصلاح fail و پس از اصلاح pass شدند.
