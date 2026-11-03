@@ -46,3 +46,9 @@ Razor: /Account/Login، /Admin/Index، Branches، Foods، Images، Groups، Menu
 `POST /Admin/Delete` با kind، id و returnUrl محلی و AntiForgery اضافه شد. kindهای مجاز: Branch، Food، FoodImage، BranchGroup، BranchFood، GroupFood، AllowedAddon، BranchHours، DailyCapacity، StaffBranch و Employee. مجوزها و وابستگی‌ها در BUSINESS-RULES آمده‌اند. GET هیچ حذف انجام نمی‌دهد؛ endpoint JSON حذف عمومی ایجاد نشده است.
 
 `POST /Admin/SaveCapacity` در فرم پنل اکنون persianDate با قالب شمسی `۱۴۰۵/۰۸/۰۹` می‌پذیرد؛ تاریخ query و API JSON همچنان ISO است. مقادیر ذخیره‌شده DateOnly/UTC تغییر نمی‌کنند. `SaveGroup` دیگر ImagePath فرم را مبنا نمی‌گیرد؛ مسیر موجود از رکورد سرور خوانده و تنها فایل جدید آن را جایگزین می‌کند. پس از SaveImage کاربر به صفحه تصاویر همان غذا برمی‌گردد.
+
+## ظرفیت پیش‌فرض و گروهی — ۲۰۲۶-۱۱-۰۳
+
+- `GET /api/manage/branches/{id}/capacity-defaults`: تنظیمات فعلی، نام غذا، branchFoodId و version از RowVersion؛ فقط شعبه مجاز.
+- `POST /api/manage/capacity-defaults`: BranchId، Total، WarningThreshold، IsActive و Foods شامل BranchFoodId، Selected و Version. یک تا ۵۰۰ انتخاب متفاوت؛ همه باید از همان شعبه باشند. پاسخ موفق 200؛ ذخیره اتمیک و Audit مشترک با فهرست شناسه‌ها انجام می‌شود.
+- GET بازه ظرفیت و API عمومی منو، ظرفیت مؤثر را از تنظیم پیش‌فرض یا استثنای تاریخ‌دار می‌خوانند. رکوردهای محاسبه‌شده Id=0 و RowVersion خالی دارند؛ این‌ها رکورد ذخیره‌شده نیستند. نسخه تنظیم گروهی از GET capacity-defaults خوانده شود. تنظیم ویژه تاریخ همچنان از POST capacities انجام می‌شود؛ پس از ذخیره، رکورد تاریخ‌دار بر پیش‌فرض اولویت دارد.

@@ -83,3 +83,18 @@ public sealed class HoursInput
     public TimeOnly End { get; set; }
     public bool IsActive { get; set; } = true;
 }
+
+public sealed class CapacityDefaultsInput
+{
+    [Range(1, int.MaxValue)] public int BranchId { get; set; }
+    [Range(0, int.MaxValue)] public int Total { get; set; }
+    [Range(0, int.MaxValue)] public int WarningThreshold { get; set; } = 5;
+    public bool IsActive { get; set; } = true;
+    public List<CapacitySelection> Foods { get; set; } = [];
+}
+public sealed class CapacitySelection
+{
+    public int BranchFoodId { get; set; }
+    public bool Selected { get; set; }
+    public string? Version { get; set; }
+}

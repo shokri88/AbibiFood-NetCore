@@ -66,6 +66,8 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await Token(client, actor));
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(Capacities(actor.BranchId))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(Capacities(actor.OtherBranchId))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/manage/branches/{actor.BranchId}/capacity-defaults")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/manage/branches/{actor.OtherBranchId}/capacity-defaults")).StatusCode);
         using var forbidden = await client.PostAsJsonAsync("/api/manage/foods", new { Name = "غذا", Title = "عنوان غذا" });
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
     }
@@ -149,7 +151,7 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var offering = new BranchFood { FoodId = foodId, BranchId = actor.BranchId, Price = 20000, DiscountPrice = 15000 };
+            var offering = new BranchFood { FoodId = foodId, BranchId = actor.BranchId, Price = 20000, DiscountPrice = 15000, RowVersion = [1] };
             db.BranchFoods.Add(offering); await db.SaveChangesAsync(); branchFoodId = offering.Id;
             var group = new BranchGroup { BranchId = actor.BranchId, Title = "گروه آزمایش جدول", ImagePath = "/group-table.png", SortOrder = 7, IsActive = false };
             db.BranchGroups.Add(group); await db.SaveChangesAsync();
@@ -189,6 +191,25 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
             Assert.Contains($"<option value=\"{branchFoodId}\">غذای تصاویر</option>", pageHtml);
             var emptyHtml = WebUtility.HtmlDecode(await client.GetStringAsync($"/Admin/{page}?branchId={actor.OtherBranchId}"));
             Assert.Contains("برای این شعبه غذایی تخصیص داده نشده", emptyHtml);
+        }
+        var capacityHtml = WebUtility.HtmlDecode(await client.GetStringAsync($"/Admin/Capacities?branchId={actor.BranchId}"));
+        Assert.Contains("ظرفیت پیش‌فرض هر روز", capacityHtml);
+        Assert.Contains($"<option value=\"{branchFoodId}\">غذای تصاویر</option>", capacityHtml);
+        var capacityToken = Regex.Match(capacityHtml, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"").Groups[1].Value;
+        var defaultsForm = new Dictionary<string, string>
+        {
+            ["BranchId"] = actor.BranchId.ToString(), ["Total"] = "۲۵", ["WarningThreshold"] = "۳", ["IsActive"] = "true",
+            ["Foods[0].Selected"] = "true", ["Foods[0].BranchFoodId"] = AbibiFood.Api.Models.PersianDisplay.Digits(branchFoodId.ToString()),
+            ["Foods[0].Version"] = "AQ=="
+        };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Admin/SaveCapacityDefaults", new FormUrlEncodedContent(defaultsForm))).StatusCode);
+        defaultsForm["__RequestVerificationToken"] = capacityToken;
+        Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Admin/SaveCapacityDefaults", new FormUrlEncodedContent(defaultsForm))).StatusCode);
+        foreach (var day in new[] { AbibiFood.Domain.Rules.CapacitySchedule.Today(), AbibiFood.Domain.Rules.CapacitySchedule.Today().AddDays(1) })
+        {
+            using var result = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{actor.BranchId}/menu?date={day:yyyy-MM-dd}"));
+            var item = result.RootElement.GetProperty("foods").EnumerateArray().Single(f => f.GetProperty("id").GetInt32() == branchFoodId);
+            Assert.Equal(25, item.GetProperty("remaining").GetInt32());
         }
         using (var scope = factory.Services.CreateScope())
         {

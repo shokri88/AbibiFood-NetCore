@@ -28,7 +28,8 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
     {
         var branch = await SelectBranch(branchId, ct); ViewData["BranchId"] = branch;
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Asia/Tehran").DateTime);
-        var capacities = branch.HasValue ? await db.DailyCapacities.AsNoTracking().Where(c => c.Date >= today && db.BranchFoods.Any(f => f.Id == c.BranchFoodId && f.BranchId == branch)).OrderBy(c => c.Date).ToListAsync(ct) : [];
+        var capacities = branch.HasValue ? await CapacityReader.ReadAsync(db, branch.Value, today, today, ct) : [];
+        ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Include(f => f.Food).Where(f => f.BranchId == branch).ToListAsync(ct);
         return View(capacities);
     }
     [Authorize(Roles = "Manager"), HttpGet]
@@ -198,12 +199,21 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         var branch = await SelectBranch(branchId, ct); ViewData["BranchId"] = branch;
         var foods = await db.BranchFoods.AsNoTracking().Include(x => x.Food).Where(x => x.BranchId == branch).ToListAsync(ct); ViewData["BranchFoods"] = foods;
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "Asia/Tehran").DateTime);
+        ViewData["EffectiveCapacities"] = branch.HasValue ? await CapacityReader.ReadAsync(db, branch.Value, today, today, ct) : new List<DailyCapacity>();
         var selected = date ?? today; var ids = foods.Select(x => x.Id).ToArray();
         var list = await db.DailyCapacities.AsNoTracking().Where(x => ids.Contains(x.BranchFoodId) && x.Date >= today).OrderBy(x => x.Date).ToListAsync(ct);
         ViewData["Rows"] = list.Select(x => new AdminRow(foods.Single(f => f.Id == x.BranchFoodId).Food.Name + " · " + PersianDisplay.Date(x.Date),
             "کل " + x.Total + " · باقی‌مانده " + x.Remaining + (x.Remaining <= x.WarningThreshold ? " · رو به اتمام" : ""), "/Admin/Capacities?branchId=" + branch + "&foodId=" + x.BranchFoodId + "&date=" + x.Date.ToString("yyyy-MM-dd"), DeleteKind: "DailyCapacity", DeleteId: x.Id, IsActive: x.IsActive)).ToList();
         var c = list.FirstOrDefault(x => x.BranchFoodId == foodId && x.Date == selected);
         return View(c is null ? new CapacityInput { Date = selected } : new CapacityInput { BranchFoodId = c.BranchFoodId, Date = c.Date, Total = c.Total, WarningThreshold = c.WarningThreshold, IsActive = c.IsActive, Version = Convert.ToBase64String(c.RowVersion) });
+    }
+    [HttpPost, RequestFormLimits(ValueCountLimit = 5000)]
+    public async Task<IActionResult> SaveCapacityDefaults(CapacityDefaultsInput input, CancellationToken ct)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        await service.SaveCapacityDefaultsAsync(input, ct);
+        TempData["Success"] = messages["Saved"];
+        return RedirectToAction(nameof(Capacities), new { branchId = input.BranchId });
     }
     [HttpPost]
     public async Task<IActionResult> SaveCapacity(CapacityInput input, int? branchId, string persianDate, CancellationToken ct)

@@ -1,4 +1,39 @@
 @model CapacityInput
 @{ViewData["Title"]="ظرفیت روزانه";}
-<partial name="_BranchFilter"/><section class="admin-card mb-4"><h2 class="card-heading">ثبت و ویرایش اطلاعات</h2><form asp-action="SaveCapacity" method="post"><div asp-validation-summary="All" class="text-danger"></div><input type="hidden" name="branchId" value="@ViewData["BranchId"]"><div class="row g-3"><input asp-for="Version" type="hidden"><div class="col-12 col-md-4 col-xl-3"><label asp-for="BranchFoodId" class="form-label">غذای شعبه</label><select asp-for="BranchFoodId" class="form-select">@foreach(var option in (ViewData["BranchFoods"] as List<BranchFood> ?? [])){<option value="@option.Id">@option.FoodId</option>}</select></div><div class="col-12 col-md-4 col-xl-3"><label for="persianDate" class="form-label">تاریخ شمسی</label><input id="persianDate" name="persianDate" type="text" inputmode="numeric" dir="ltr" class="form-control" value="@PersianDisplay.Date(Model.Date)" placeholder="۱۴۰۵/۰۸/۰۹" required data-persian-date><small class="text-secondary">سال/ماه/روز؛ نمونه: ۱۴۰۵/۰۸/۰۹</small><span asp-validation-for="Date" class="text-danger"></span></div><div class="col-12 col-md-4 col-xl-3"><label asp-for="Total" class="form-label">ظرفیت کل</label><input asp-for="Total" type="number" class="form-control" step="any"><span asp-validation-for="Total" class="text-danger"></span></div><div class="col-12 col-md-4 col-xl-3"><label asp-for="WarningThreshold" class="form-label">آستانه هشدار</label><input asp-for="WarningThreshold" type="number" class="form-control" step="any"><span asp-validation-for="WarningThreshold" class="text-danger"></span></div><div class="col-12 col-md-4 col-xl-3"><label class="form-check check-field"><input asp-for="IsActive" class="form-check-input">ظرفیت فعال</label></div><div class="col-12 form-footer"><button class="btn btn-primary">ذخیره</button></div></div></form></section>
-<partial name="_Rows"/>
+<partial name="_BranchFilter"/>
+@{
+    var foods = ViewData["BranchFoods"] as List<BranchFood> ?? [];
+    var capacities = ViewData["EffectiveCapacities"] as List<DailyCapacity> ?? [];
+}
+<section class="admin-card mb-4">
+    <h2 class="card-heading">ظرفیت پیش‌فرض هر روز</h2>
+    <p class="text-secondary">غذاها را انتخاب کنید و یک‌بار ظرفیت بدهید. هر روز از ساعت ۰۰:۰۰ به وقت تهران با همین ظرفیت شروع می‌شود؛ رزرو و فروش روز قبل به روز بعد منتقل نمی‌شود. تنظیم جدید روی روزهایی اعمال می‌شود که ظرفیت ویژه ندارند؛ سوابق و مصرف ثبت‌شده تغییر نمی‌کنند.</p>
+    <form asp-action="SaveCapacityDefaults" method="post">
+        <input type="hidden" name="BranchId" value='@ViewData["BranchId"]'>
+        <div class="row g-3 mb-4">
+            <div class="col-md-4"><label for="defaultTotal" class="form-label">ظرفیت روزانه غذاهای انتخاب‌شده</label><input id="defaultTotal" name="Total" type="number" min="0" step="1" class="form-control" required></div>
+            <div class="col-md-4"><label for="defaultWarning" class="form-label">آستانه هشدار</label><input id="defaultWarning" name="WarningThreshold" type="number" min="0" step="1" value="5" class="form-control" required></div>
+            <div class="col-md-4"><label class="check-field"><input type="checkbox" name="IsActive" value="true" checked>ظرفیت روزانه فعال</label><input type="hidden" name="IsActive" value="false"></div>
+        </div>
+        <label class="form-check mb-3"><input type="checkbox" class="form-check-input" data-select-all-capacities>انتخاب همه غذاهای این شعبه</label>
+        <div class="table-responsive"><table class="table align-middle">
+            <thead><tr><th data-no-sort>انتخاب</th><th>نام غذا</th><th>ظرفیت پیش‌فرض</th><th>آستانه هشدار</th><th>فعال</th><th>ظرفیت امروز</th><th>باقی‌مانده امروز</th></tr></thead>
+            <tbody>@for(var i = 0; i < foods.Count; i++) {
+                var food = foods[i];
+                var todayCapacity = capacities.FirstOrDefault(c => c.BranchFoodId == food.Id);
+                <tr>
+                    <td><input type="checkbox" class="form-check-input" name="Foods[@i].Selected" value="true" data-capacity-selection aria-label="انتخاب @food.Food.Name"><input type="hidden" name="Foods[@i].BranchFoodId" value="@food.Id"><input type="hidden" name="Foods[@i].Version" value="@Convert.ToBase64String(food.RowVersion)"></td>
+                    <td>@food.Food.Name</td>
+                    <td>@(food.DefaultDailyCapacity?.ToString() ?? "تنظیم نشده")</td>
+                    <td>@food.DefaultCapacityWarningThreshold</td>
+                    <td>@(food.DefaultDailyCapacity.HasValue && food.IsDailyCapacityActive ? "فعال" : "غیرفعال")</td>
+                    <td>@(todayCapacity?.Total ?? 0)</td>
+                    <td>@(todayCapacity?.IsActive == true ? todayCapacity.Remaining : 0)</td>
+                </tr>
+            }</tbody>
+        </table></div>
+        <div class="form-footer"><button class="btn btn-primary" disabled="@(foods.Count == 0)">ذخیره ظرفیت برای غذاهای انتخاب‌شده</button></div>
+    </form>
+</section>
+<section class="admin-card mb-4"><h2 class="card-heading">ظرفیت ویژه برای یک تاریخ</h2><form asp-action="SaveCapacity" method="post"><div asp-validation-summary="All" class="text-danger"></div><input type="hidden" name="branchId" value="@ViewData["BranchId"]"><div class="row g-3"><input asp-for="Version" type="hidden"><div class="col-12 col-md-4 col-xl-3"><label asp-for="BranchFoodId" class="form-label">غذای شعبه</label><select asp-for="BranchFoodId" class="form-select">@foreach(var option in (ViewData["BranchFoods"] as List<BranchFood> ?? [])){<option value="@option.Id">@option.Food.Name</option>}</select></div><div class="col-12 col-md-4 col-xl-3"><label for="persianDate" class="form-label">تاریخ شمسی</label><input id="persianDate" name="persianDate" type="text" inputmode="numeric" dir="ltr" class="form-control" value="@PersianDisplay.Date(Model.Date)" placeholder="۱۴۰۵/۰۸/۰۹" required data-persian-date><small class="text-secondary">سال/ماه/روز؛ نمونه: ۱۴۰۵/۰۸/۰۹</small><span asp-validation-for="Date" class="text-danger"></span></div><div class="col-12 col-md-4 col-xl-3"><label asp-for="Total" class="form-label">ظرفیت کل</label><input asp-for="Total" type="number" class="form-control" step="any"><span asp-validation-for="Total" class="text-danger"></span></div><div class="col-12 col-md-4 col-xl-3"><label asp-for="WarningThreshold" class="form-label">آستانه هشدار</label><input asp-for="WarningThreshold" type="number" class="form-control" step="any"><span asp-validation-for="WarningThreshold" class="text-danger"></span></div><div class="col-12 col-md-4 col-xl-3"><label class="form-check check-field"><input asp-for="IsActive" class="form-check-input">ظرفیت فعال</label></div><div class="col-12 form-footer"><button class="btn btn-primary">ذخیره</button></div></div></form></section>
+<h2 class="h5 mt-4">ظرفیت‌های ویژه تاریخ‌دار</h2><partial name="_Rows"/>

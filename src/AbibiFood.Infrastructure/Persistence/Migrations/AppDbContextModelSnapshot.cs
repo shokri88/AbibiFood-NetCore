@@ -151,6 +151,12 @@ namespace AbibiFood.Infrastructure.Persistence.Migrations
                     b.Property<bool>("CanSellStandalone")
                         .HasColumnType("bit");
 
+                    b.Property<int>("DefaultCapacityWarningThreshold")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DefaultDailyCapacity")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("DiscountPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -159,6 +165,9 @@ namespace AbibiFood.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDailyCapacityActive")
                         .HasColumnType("bit");
 
                     b.Property<decimal>("Price")

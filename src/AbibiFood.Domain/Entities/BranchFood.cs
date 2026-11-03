@@ -10,5 +10,8 @@ public sealed class BranchFood
     public decimal? DiscountPrice { get; set; }
     public bool CanSellStandalone { get; set; } = true;
     public bool IsActive { get; set; } = true;
+    public int? DefaultDailyCapacity { get; set; }
+    public int DefaultCapacityWarningThreshold { get; set; } = 5;
+    public bool IsDailyCapacityActive { get; set; } = true;
     public byte[] RowVersion { get; set; } = [];
 }

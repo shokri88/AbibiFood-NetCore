@@ -26,15 +26,28 @@ public sealed class ManagementController(CatalogService service, AppDbContext db
     public async Task<IActionResult> SaveAddon(AddonInput input, CancellationToken ct) => Ok(new { id = await service.SaveAddonAsync(input, ct) });
     [HttpPost("capacities")]
     public async Task<IActionResult> SaveCapacity(CapacityInput input, CancellationToken ct) => Ok(new { id = await service.SaveCapacityAsync(input, ct) });
+    [HttpPost("capacity-defaults")]
+    public async Task<IActionResult> SaveCapacityDefaults(CapacityDefaultsInput input, CancellationToken ct)
+    { await service.SaveCapacityDefaultsAsync(input, ct); return Ok(); }
     [HttpPost("hours")]
     public async Task<IActionResult> SaveHours(HoursInput input, CancellationToken ct) => Ok(new { id = await service.SaveHoursAsync(input, ct) });
 
+    [HttpGet("branches/{branchId:int}/capacity-defaults")]
+    public async Task<IActionResult> CapacityDefaults(int branchId, CancellationToken ct)
+    {
+        await user.EnsureBranchAsync(branchId, ct);
+        var foods = await db.BranchFoods.AsNoTracking().Include(f => f.Food).Where(f => f.BranchId == branchId).ToListAsync(ct);
+        return Ok(foods.Select(f => new
+        {
+            branchFoodId = f.Id, name = f.Food.Name, f.DefaultDailyCapacity, f.DefaultCapacityWarningThreshold,
+            f.IsDailyCapacityActive, version = Convert.ToBase64String(f.RowVersion)
+        }));
+    }
     [HttpGet("branches/{branchId:int}/capacities")]
     public async Task<IActionResult> Capacities(int branchId, DateOnly from, DateOnly to, CancellationToken ct)
     {
         await user.EnsureBranchAsync(branchId, ct);
         if (to < from || to.DayNumber - from.DayNumber > 366) return BadRequest();
-        return Ok(await db.DailyCapacities.AsNoTracking().Where(c => c.Date >= from && c.Date <= to &&
-            db.BranchFoods.Any(f => f.Id == c.BranchFoodId && f.BranchId == branchId)).ToListAsync(ct));
+        return Ok(await CapacityReader.ReadAsync(db, branchId, from, to, ct));
     }
 }

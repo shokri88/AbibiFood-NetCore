@@ -108,6 +108,30 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
         if (input.Id == 0) db.AllowedAddons.Add(entity);
         await AuditAsync("SaveAddon", entity, parent.BranchId, ct); return entity.Id;
     }
+    public async Task SaveCapacityDefaultsAsync(CapacityDefaultsInput input, CancellationToken ct)
+    {
+        await user.EnsureBranchAsync(input.BranchId, ct);
+        var selected = input.Foods.Where(f => f.Selected).ToList();
+        var ids = selected.Select(f => f.BranchFoodId).Distinct().ToArray();
+        if (ids.Length == 0 || ids.Length > 500 || ids.Length != selected.Count)
+            throw new ArgumentException("بین یک تا ۵۰۰ غذای متفاوت انتخاب کنید.");
+        CatalogRules.Capacity(input.Total, 0, 0, input.WarningThreshold);
+        var foods = await db.BranchFoods.Where(f => ids.Contains(f.Id) && f.BranchId == input.BranchId).ToListAsync(ct);
+        if (foods.Count != ids.Length) throw new ArgumentException("همه غذاها باید متعلق به شعبه انتخاب‌شده باشند.");
+        // قبل از تغییر هر رکورد، تمام انتخاب‌ها و نسخه‌ها بررسی می‌شوند.
+        foreach (var food in foods) SetVersion(food, selected.Single(f => f.BranchFoodId == food.Id).Version);
+        foreach (var food in foods)
+        {
+            food.DefaultDailyCapacity = input.Total;
+            food.DefaultCapacityWarningThreshold = input.WarningThreshold;
+            food.IsDailyCapacityActive = input.IsActive;
+        }
+        await db.SaveWithAuditAsync(new AuditLog
+        {
+            ActorId = user.UserId, BranchId = input.BranchId, Action = "SaveCapacityDefaults", EntityType = nameof(BranchFood),
+            Details = System.Text.Json.JsonSerializer.Serialize(new { BranchFoodIds = ids, input.Total, input.WarningThreshold, input.IsActive })
+        }, foods[0], ct);
+    }
     public async Task<int> SaveCapacityAsync(CapacityInput input, CancellationToken ct)
     {
         var food = await db.BranchFoods.SingleAsync(x => x.Id == input.BranchFoodId, ct);

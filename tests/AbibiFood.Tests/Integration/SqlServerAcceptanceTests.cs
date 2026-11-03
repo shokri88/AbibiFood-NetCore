@@ -62,6 +62,14 @@ public sealed class SqlServerAcceptanceTests(ITestOutputHelper output)
             var extra = new BranchFood { BranchId = branch.Id, FoodId = sauce.Id, Price = 20, CanSellStandalone = true };
             db.AddRange(main, extra); await db.SaveChangesAsync();
             var service = new CatalogService(db, new Manager());
+            await service.SaveCapacityDefaultsAsync(new CapacityDefaultsInput
+            {
+                BranchId = branch.Id, Total = 20,
+                Foods = new[] { main, extra }.Select(f => new CapacitySelection { BranchFoodId = f.Id, Selected = true, Version = Convert.ToBase64String(f.RowVersion) }).ToList()
+            }, default);
+            var recurringDay = AbibiFood.Domain.Rules.CapacitySchedule.Today().AddDays(1);
+            Assert.All(await CapacityReader.ReadAsync(db, branch.Id, recurringDay, recurringDay, default), c => Assert.Equal(20, c.Remaining));
+
             await service.SaveAddonAsync(new AddonInput { ParentBranchFoodId = main.Id, AddonBranchFoodId = extra.Id }, default);
             var day = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(2);
             await service.SaveCapacityAsync(new CapacityInput { BranchFoodId = extra.Id, Date = day, Total = 10 }, default);
@@ -104,6 +112,19 @@ public sealed class SqlServerAcceptanceTests(ITestOutputHelper output)
                     .SaveFoodAsync(new FoodInput { Name = marker, Title = marker }, default));
             }
             await using (var verify = Create()) Assert.False(await verify.Foods.AnyAsync(x => x.Name == marker));
+            // شکست Audit نباید پیش‌فرض بخشی از انتخاب گروهی را ذخیره کند.
+            await using (var failingDefaults = Create())
+            {
+                var selectedFoods = await failingDefaults.BranchFoods.ToListAsync();
+                await Assert.ThrowsAsync<DbUpdateException>(() => new CatalogService(failingDefaults, new Manager(new string('x', 501)))
+                    .SaveCapacityDefaultsAsync(new CapacityDefaultsInput
+                    {
+                        BranchId = branch.Id, Total = 999,
+                        Foods = selectedFoods.Select(f => new CapacitySelection { BranchFoodId = f.Id, Selected = true, Version = Convert.ToBase64String(f.RowVersion) }).ToList()
+                    }, default));
+            }
+            await using (var verify = Create())
+                Assert.All(await verify.BranchFoods.ToListAsync(), f => Assert.Equal(20, f.DefaultDailyCapacity));
             output.WriteLine("PASS: migration, shared item capacity, SQL rowversion, unique index and audit rollback.");
         }
         finally

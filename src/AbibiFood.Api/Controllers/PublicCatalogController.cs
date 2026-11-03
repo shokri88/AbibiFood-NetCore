@@ -1,3 +1,4 @@
+using AbibiFood.Application.Services;
 using AbibiFood.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,7 +19,7 @@ public sealed class PublicCatalogController(AppDbContext db) : ControllerBase
         var foods = await db.BranchFoods.AsNoTracking().Include(x => x.Food).ThenInclude(x => x.Images)
             .Where(x => x.BranchId == branchId && x.IsActive && x.Food.IsActive).ToListAsync(ct);
         var ids = foods.Select(x => x.Id).ToArray();
-        var capacities = await db.DailyCapacities.AsNoTracking().Where(x => ids.Contains(x.BranchFoodId) && x.Date == day && x.IsActive).ToListAsync(ct);
+        var capacities = await CapacityReader.ReadAsync(db, branchId, day, day, ct);
         var groups = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branchId && x.IsActive).OrderBy(x => x.SortOrder).ToListAsync(ct);
         var groupIds = groups.Select(x => x.Id).ToArray();
         var memberships = await db.GroupFoods.AsNoTracking().Where(x => groupIds.Contains(x.BranchGroupId) && ids.Contains(x.BranchFoodId) && x.IsActive).ToListAsync(ct);
@@ -45,7 +46,7 @@ public sealed class PublicCatalogController(AppDbContext db) : ControllerBase
                 x.DiscountPrice,
                 x.CanSellStandalone,
                 images = x.Food.Images.Where(i => i.IsActive).OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Path),
-                remaining = capacities.FirstOrDefault(c => c.BranchFoodId == x.Id)?.Remaining ?? 0
+                remaining = capacities.FirstOrDefault(c => c.BranchFoodId == x.Id && c.IsActive)?.Remaining ?? 0
             })
         });
     }

@@ -39,6 +39,15 @@
         input.value = input.value.replace(/\.0+$/, '');
         format(); input.addEventListener('input', format);
     });
+    document.querySelectorAll('[data-select-all-capacities]').forEach(toggle => {
+        const choices = [...toggle.form.querySelectorAll('[data-capacity-selection]')];
+        toggle.addEventListener('change', () => choices.forEach(choice => { choice.checked = toggle.checked; }));
+        choices.forEach(choice => choice.addEventListener('change', () => {
+            const selected = choices.filter(item => item.checked).length;
+            toggle.checked = selected === choices.length && selected > 0;
+            toggle.indeterminate = selected > 0 && selected < choices.length;
+        }));
+    });
     document.querySelectorAll('form[data-confirm-delete]').forEach(form => form.addEventListener('submit', event => {
         if (!window.confirm(form.dataset.confirmDelete)) event.preventDefault();
     }));

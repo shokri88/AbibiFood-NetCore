@@ -13,7 +13,7 @@ public sealed class PersianFormValueProvider(IFormCollection form) : FormValuePr
     };
     public override ValueProviderResult GetValue(string key)
     {
-        if (!NumericFields.Contains(key)) return ValueProviderResult.None;
+        if (!NumericFields.Contains(key) && !System.Text.RegularExpressions.Regex.IsMatch(key, @"^Foods\[\d+\]\.BranchFoodId$")) return ValueProviderResult.None;
         var result = base.GetValue(key);
         return result == ValueProviderResult.None ? result : new ValueProviderResult(
             new StringValues(result.Values.Select(value => key.Equals("Price", StringComparison.OrdinalIgnoreCase) || key.Equals("DiscountPrice", StringComparison.OrdinalIgnoreCase) ? PersianDisplay.LatinDigits(value).Replace(",", "") : PersianDisplay.LatinDigits(value)).ToArray()), CultureInfo.InvariantCulture);
