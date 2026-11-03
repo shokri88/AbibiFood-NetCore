@@ -17,6 +17,28 @@
             if (position !== null) input.setSelectionRange(position, position);
         });
     });
+    document.querySelectorAll('input[data-money-field]').forEach(input => {
+        const format = () => {
+            const position = input.selectionStart;
+            const before = input.value.slice(0, position ?? 0).replace(/[,٬]/g, '').length;
+            const raw = input.value.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+                .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,٬]/g, '');
+            // اعشار را حذف یا گرد نکنید؛ ورودی نامعتبر باید به کاربر اعلام شود.
+            if (!/^\d*$/.test(raw)) return;
+            input.value = faDigits(raw.replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+            if (position !== null && document.activeElement === input) {
+                let cursor = 0, count = 0;
+                while (cursor < input.value.length && count < before) {
+                    if (input.value[cursor] !== ',') count++;
+                    cursor++;
+                }
+                input.setSelectionRange(cursor, cursor);
+            }
+        };
+        // Razor ممکن است مبلغ decimal را با صفر اعشاری رندر کند.
+        input.value = input.value.replace(/\.0+$/, '');
+        format(); input.addEventListener('input', format);
+    });
     document.querySelectorAll('form[data-confirm-delete]').forEach(form => form.addEventListener('submit', event => {
         if (!window.confirm(form.dataset.confirmDelete)) event.preventDefault();
     }));

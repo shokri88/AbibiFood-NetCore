@@ -16,7 +16,7 @@ public sealed class PersianFormValueProvider(IFormCollection form) : FormValuePr
         if (!NumericFields.Contains(key)) return ValueProviderResult.None;
         var result = base.GetValue(key);
         return result == ValueProviderResult.None ? result : new ValueProviderResult(
-            new StringValues(result.Values.Select(PersianDisplay.LatinDigits).ToArray()), CultureInfo.InvariantCulture);
+            new StringValues(result.Values.Select(value => key.Equals("Price", StringComparison.OrdinalIgnoreCase) || key.Equals("DiscountPrice", StringComparison.OrdinalIgnoreCase) ? PersianDisplay.LatinDigits(value).Replace(",", "") : PersianDisplay.LatinDigits(value)).ToArray()), CultureInfo.InvariantCulture);
     }
 }
 public sealed class PersianFormValueProviderFactory : IValueProviderFactory

@@ -136,7 +136,7 @@ public sealed class AdminController(AppDbContext db, CatalogService service, IUs
         ViewData["BranchFoods"] = await db.BranchFoods.AsNoTracking().Include(x => x.Food).Where(x => x.BranchId == branch).ToListAsync(ct);
         ViewData["Groups"] = await db.BranchGroups.AsNoTracking().Where(x => x.BranchId == branch).ToListAsync(ct);
         var list = await db.BranchFoods.AsNoTracking().Include(x => x.Food).Where(x => x.BranchId == branch).ToListAsync(ct);
-        ViewData["Rows"] = list.Select(x => new AdminRow("غذا " + x.FoodId, "قیمت: " + x.Price + " تومان", "/Admin/Menu?branchId=" + branch + "&id=" + x.Id, DeleteKind: "BranchFood", DeleteId: x.Id)).ToList();
+        ViewData["Rows"] = list.Select(x => new AdminRow("غذا " + x.FoodId, "قیمت: " + PersianDisplay.Money(x.Price) + " تومان", "/Admin/Menu?branchId=" + branch + "&id=" + x.Id, DeleteKind: "BranchFood", DeleteId: x.Id)).ToList();
         var x = list.FirstOrDefault(x => x.Id == id); return View(x is null ? new BranchFoodInput { BranchId = branch ?? 0 } : new BranchFoodInput { Id = x.Id, BranchId = x.BranchId, FoodId = x.FoodId, Price = x.Price, DiscountPrice = x.DiscountPrice, CanSellStandalone = x.CanSellStandalone, IsActive = x.IsActive, Version = Convert.ToBase64String(x.RowVersion) });
     }
     [Authorize(Roles = "Manager"), HttpPost]

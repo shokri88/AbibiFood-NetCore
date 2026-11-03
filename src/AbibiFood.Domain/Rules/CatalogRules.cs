@@ -4,6 +4,8 @@ public static class CatalogRules
 {
     public static void Price(decimal price, decimal? discount)
     {
+        if (price != decimal.Truncate(price) || (discount.HasValue && discount.Value != decimal.Truncate(discount.Value)))
+            throw new ArgumentException("مبلغ باید به تومان و بدون اعشار باشد.");
         if (price < 0 || (discount.HasValue && (discount < 0 || discount >= price)))
             throw new ArgumentException("قیمت نامعتبر است؛ قیمت تخفیفی باید از قیمت اصلی کمتر باشد.");
     }

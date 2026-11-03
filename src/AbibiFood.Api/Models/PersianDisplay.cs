@@ -8,6 +8,7 @@ public static class PersianDisplay
         c is >= '۰' and <= '۹' ? (char)('0' + c - '۰') : c is >= '٠' and <= '٩' ? (char)('0' + c - '٠') : c))
         .Replace('٫', '.').Replace("٬", "");
     public static string Digits(string value) => string.Concat(value.Select(c => c is >= '0' and <= '9' ? (char)('۰' + c - '0') : c));
+    public static string Money(decimal value) => Digits(value.ToString("N0", CultureInfo.InvariantCulture));
     public static string Date(DateOnly date)
     {
         var calendar = new PersianCalendar(); var day = date.ToDateTime(TimeOnly.MinValue);

@@ -9,6 +9,7 @@ document.querySelectorAll('form[method="post"]').forEach(form => {
     fields.forEach(field => {
         const rules = [];
         const latin = value => String(value).replace(/[۰-۹]/g, digit => '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)).replace(/[٠-٩]/g, digit => '٠١٢٣٤٥٦٧٨٩'.indexOf(digit)).replace(/٫/g, '.').replace(/٬/g, '');
+        if (field.hasAttribute('data-money-field')) rules.push({ validator: value => !value || /^\d+$/.test(latin(value).replace(/,/g, '')), errorMessage: 'مبلغ را به تومان و بدون اعشار وارد کنید.' });
         if (field.type === 'number') rules.push({ validator: value => !value || /^-?\d+(\.\d+)?$/.test(latin(value)), errorMessage: 'عدد معتبر وارد کنید.' });
         if (field.type === 'time') rules.push({ validator: value => !value || /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(latin(value)), errorMessage: 'ساعت معتبر مانند ۱۸:۳۰ وارد کنید.' });
         if (field.hasAttribute('data-persian-date')) rules.push({ validator: value => /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(latin(value)), errorMessage: 'تاریخ شمسی مانند ۱۴۰۵/۰۸/۰۹ وارد کنید.' });

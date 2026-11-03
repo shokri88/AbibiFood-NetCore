@@ -29,6 +29,14 @@ public sealed class PersianDisplayTests
         Assert.Equal("۱۴۰۴/۰۱/۰۱ · ۰۰:۳۰:۰۰", PersianDisplay.Timestamp(new DateTimeOffset(2025, 3, 20, 21, 0, 0, TimeSpan.Zero)));
     }
     [Fact]
+    public void MoneyUsesThousandsAndNoDecimalPlaces()
+    {
+        Assert.Equal("۱,۲۳۴,۵۶۷", PersianDisplay.Money(1234567m));
+        var provider = new PersianFormValueProvider(new FormCollection(new Dictionary<string, StringValues> { ["Price"] = "۱,۲۳۴,۵۶۷", ["DiscountPrice"] = "۹۸۷٬۶۵۴" }));
+        Assert.Equal("1234567", provider.GetValue("Price").FirstValue);
+        Assert.Equal("987654", provider.GetValue("DiscountPrice").FirstValue);
+    }
+    [Fact]
     public void FormProviderNormalizesNumbersWithoutTakingOverPasswordsOrText()
     {
         var provider = new PersianFormValueProvider(new FormCollection(new Dictionary<string, StringValues>
