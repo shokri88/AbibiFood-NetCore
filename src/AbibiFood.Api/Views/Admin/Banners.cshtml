@@ -10,9 +10,9 @@
     <form asp-action="SaveBanner" method="post" enctype="multipart/form-data">
         <input asp-for="Id" type="hidden"><input asp-for="BranchId" type="hidden">
         <div class="row g-3">
-            <div class="col-md-6"><label asp-for="Title" class="form-label">عنوان بنر</label><input asp-for="Title" class="form-control" required maxlength="200"></div>
+            <div class="col-md-6"><label asp-for="Title" class="form-label">عنوان بنر</label><textarea asp-for="Title" class="form-control" required maxlength="200" rows="2"></textarea><small class="text-secondary">برای خط دوم عنوان، Enter بزنید.</small></div>
             <div class="col-md-6"><label asp-for="BranchFoodId" class="form-label">لینک به غذای شعبه</label><select asp-for="BranchFoodId" class="form-select" required><option value="">انتخاب غذا</option>@foreach(var food in ViewData["BranchFoods"] as List<BranchFood> ?? []){<option value="@food.Id">@food.Food.Name</option>}</select></div>
-            <div class="col-12"><label asp-for="Text" class="form-label">متن بنر</label><textarea asp-for="Text" class="form-control" required maxlength="2000" rows="3"></textarea></div>
+            <div class="col-12"><label asp-for="Text" class="form-label">متن بنر</label><input asp-for="Text" type="text" class="form-control" required maxlength="2000" value="@Model.Text.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ')"></div>
             <div class="col-md-6"><label for="bannerImage" class="form-label">تصویر اختصاصی بنر</label><input type="file" id="bannerImage" name="imageFile" class="form-control" accept="image/png,image/jpeg,image/webp" data-image-upload required="@(Model.Id == 0)"><small>PNG، JPEG یا WebP؛ حداکثر ۵ مگابایت. در ویرایش، انتخاب فایل جدید اختیاری است.</small>@if(!string.IsNullOrEmpty(Model.ImagePath)){<img src="@Model.ImagePath" class="image-preview" alt="تصویر فعلی بنر">}</div>
             <div class="col-md-3"><label asp-for="SortOrder" class="form-label">ترتیب</label><input asp-for="SortOrder" type="number" min="0" step="1" class="form-control"></div>
             <div class="col-md-3"><label class="check-field"><input asp-for="IsActive" class="form-check-input">فعال</label></div>

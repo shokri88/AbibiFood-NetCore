@@ -159,7 +159,7 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
         var entity = input.Id == 0 ? new BranchBanner { BranchId = input.BranchId } : await db.BranchBanners.SingleAsync(x => x.Id == input.Id, ct);
         if (entity.BranchId != input.BranchId) throw new ArgumentException("شعبه رکورد قابل تغییر نیست.");
         entity.BranchFoodId = input.BranchFoodId; entity.SortOrder = input.SortOrder; entity.IsActive = input.IsActive;
-        entity.Title = input.Title.Trim(); entity.Text = input.Text.Trim(); entity.ImagePath = input.ImagePath;
+        entity.Title = input.Title.Trim(); entity.Text = input.Text.Trim().Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' '); entity.ImagePath = input.ImagePath;
         if (input.Id == 0) db.BranchBanners.Add(entity);
         await AuditAsync("SaveBanner", entity, input.BranchId, ct); return entity.Id;
     }

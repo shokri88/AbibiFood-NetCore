@@ -76,6 +76,8 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
         var specialsHtml = await client.GetStringAsync($"/Admin/Specials?branchId={actor.BranchId}");
         var bannerHtml = await client.GetStringAsync($"/Admin/Banners?branchId={actor.BranchId}");
         Assert.Contains("multipart/form-data", bannerHtml);
+        Assert.Matches("<textarea[^>]*id=\"Title\"", bannerHtml);
+        Assert.Matches("<input[^>]*id=\"Text\"", bannerHtml);
         var form = new Dictionary<string, string> { ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["SortOrder"] = "۲", ["IsActive"] = "true" };
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Admin/SaveSpecial", new FormUrlEncodedContent(form))).StatusCode);
         form["__RequestVerificationToken"] = Csrf(specialsHtml);
@@ -83,7 +85,7 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
         form["BranchFoodId"] = otherFoodId.ToString();
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Admin/SaveSpecial", new FormUrlEncodedContent(form))).StatusCode);
         using var upload = new MultipartFormDataContent();
-        foreach (var pair in new Dictionary<string, string> { ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["Title"] = "عنوان اختصاصی", ["Text"] = "متن اختصاصی", ["ImagePath"] = "https://forged.test/image.png", ["IsActive"] = "true", ["__RequestVerificationToken"] = Csrf(bannerHtml) }) upload.Add(new StringContent(pair.Value), pair.Key);
+        foreach (var pair in new Dictionary<string, string> { ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["Title"] = "عنوان اختصاصی\nخط دوم", ["Text"] = "متن اختصاصی", ["ImagePath"] = "https://forged.test/image.png", ["IsActive"] = "true", ["__RequestVerificationToken"] = Csrf(bannerHtml) }) upload.Add(new StringContent(pair.Value), pair.Key);
         var image = new ByteArrayContent(new byte[] {137,80,78,71,13,10,26,10,0,0,0,0}); image.Headers.ContentType = new MediaTypeHeaderValue("image/png"); upload.Add(image, "imageFile", "banner.png");
         Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Admin/SaveBanner", upload)).StatusCode);
         string storedPath; int bannerId;
@@ -95,12 +97,12 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
         try
         {
             Assert.StartsWith("/uploads/catalog/", storedPath);
-            var edit = new Dictionary<string, string> { ["Id"] = bannerId.ToString(), ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["Title"] = "عنوان اختصاصی", ["Text"] = "متن ویرایش‌شده", ["ImagePath"] = "https://forged.test/replacement.png", ["IsActive"] = "true", ["__RequestVerificationToken"] = Csrf(bannerHtml) };
+            var edit = new Dictionary<string, string> { ["Id"] = bannerId.ToString(), ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["Title"] = "عنوان اختصاصی\nخط دوم", ["Text"] = "متن\r\nویرایش‌شده", ["ImagePath"] = "https://forged.test/replacement.png", ["IsActive"] = "true", ["__RequestVerificationToken"] = Csrf(bannerHtml) };
             Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Admin/SaveBanner", new FormUrlEncodedContent(edit))).StatusCode);
             using var json = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{actor.BranchId}/menu"));
             Assert.Equal(foodId, json.RootElement.GetProperty("specialFoodIds")[0].GetInt32());
             var banner = json.RootElement.GetProperty("banners")[0];
-            Assert.Equal(foodId, banner.GetProperty("branchFoodId").GetInt32()); Assert.Equal("عنوان اختصاصی", banner.GetProperty("title").GetString());
+            Assert.Equal(foodId, banner.GetProperty("branchFoodId").GetInt32()); Assert.Equal("عنوان اختصاصی\nخط دوم", banner.GetProperty("title").GetString());
             Assert.Equal("متن ویرایش‌شده", banner.GetProperty("text").GetString()); Assert.Equal(storedPath, banner.GetProperty("imagePath").GetString());
             using var otherJson = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{actor.OtherBranchId}/menu"));
             Assert.Equal(0, otherJson.RootElement.GetProperty("banners").GetArrayLength());
