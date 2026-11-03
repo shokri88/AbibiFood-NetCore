@@ -44,7 +44,7 @@ public sealed class PublicCatalogController(AppDbContext db) : ControllerBase
                 x.Price,
                 x.DiscountPrice,
                 x.CanSellStandalone,
-                images = x.Food.Images.Where(i => i.IsActive).OrderBy(i => i.SortOrder).Select(i => i.Path),
+                images = x.Food.Images.Where(i => i.IsActive).OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Path),
                 remaining = capacities.FirstOrDefault(c => c.BranchFoodId == x.Id)?.Remaining ?? 0
             })
         });

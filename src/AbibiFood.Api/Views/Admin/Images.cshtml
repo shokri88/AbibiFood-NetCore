@@ -1,6 +1,7 @@
 @model ImageInput
 @{ViewData["Title"]="تصاویر «" + ViewData["FoodName"] + "»";}
 <a asp-action="Foods" asp-route-id="@Model.FoodId" class="btn btn-outline-primary mb-3">بازگشت به غذا</a>
+<p class="alert alert-info">ترتیب نمایش ۰ را برای تصویر اصلی فعال غذا قرار دهید؛ این تصویر در فهرست و کارت غذا نمایش داده می‌شود. برای تصاویر بعدی ترتیب‌های ۱، ۲ و بالاتر تعیین کنید؛ این تصاویر در صفحه جزئیات اپ دیده می‌شوند. برای هر ترتیب فقط یک تصویر فعال قرار دهید.</p>
 <section class="admin-card mb-4">
     <h2 class="card-heading">@(Model.Id == 0 ? "افزودن تصویر" : "ویرایش تصویر")</h2>
     <form asp-action="SaveImage" method="post" enctype="multipart/form-data">

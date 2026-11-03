@@ -38,7 +38,7 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
     public async Task<int> SaveFoodAsync(FoodInput input, CancellationToken ct)
     {
         Manager(); var entity = input.Id == 0 ? new Food() : await db.Foods.SingleAsync(x => x.Id == input.Id, ct);
-        entity.Name = input.Name.Trim(); entity.Title = input.Title.Trim(); entity.Description = input.Description; entity.IsActive = input.IsActive;
+        entity.Name = input.Name.Trim(); entity.Title = entity.Name; entity.Description = input.Description; entity.IsActive = input.IsActive;
         if (input.Id == 0) db.Foods.Add(entity);
         await AuditAsync("SaveFood", entity, null, ct); return entity.Id;
     }

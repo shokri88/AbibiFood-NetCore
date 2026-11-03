@@ -152,6 +152,41 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
             var offering = new BranchFood { FoodId = foodId, BranchId = actor.BranchId, Price = 20000 };
             db.BranchFoods.Add(offering); await db.SaveChangesAsync(); branchFoodId = offering.Id;
         }
+        foreach (var page in new[] { "Memberships", "Addons" })
+        {
+            var pageHtml = WebUtility.HtmlDecode(await client.GetStringAsync($"/Admin/{page}?branchId={actor.BranchId}"));
+            Assert.Contains($"<option value=\"{branchFoodId}\">غذای تصاویر</option>", pageHtml);
+            var emptyHtml = WebUtility.HtmlDecode(await client.GetStringAsync($"/Admin/{page}?branchId={actor.OtherBranchId}"));
+            Assert.Contains("برای این شعبه غذایی تخصیص داده نشده", emptyHtml);
+        }
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.FoodImages.AddRange(
+                new FoodImage { FoodId = foodId, Path = "/second.png", SortOrder = 1, IsActive = true },
+                new FoodImage { FoodId = foodId, Path = "/main.png", SortOrder = 0, IsActive = true },
+                new FoodImage { FoodId = foodId, Path = "/hidden.png", SortOrder = 0, IsActive = false });
+            await db.SaveChangesAsync();
+        }
+        var foodsHtml = await client.GetStringAsync("/Admin/Foods");
+        Assert.Contains("src=\"/main.png\"", foodsHtml);
+        Assert.DoesNotContain("src=\"/hidden.png\"", foodsHtml);
+        Assert.DoesNotContain("name=\"Title\"", foodsHtml);
+        using var menuResponse = await client.GetAsync($"/api/catalog/branches/{actor.BranchId}/menu");
+        var menuJson = System.Text.Json.JsonDocument.Parse(await menuResponse.Content.ReadAsStringAsync());
+        var menuFood = menuJson.RootElement.GetProperty("foods").EnumerateArray().Single(x => x.GetProperty("id").GetInt32() == branchFoodId);
+        Assert.Equal(new[] { "/main.png", "/second.png" }, menuFood.GetProperty("images").EnumerateArray().Select(x => x.GetString()));
+        using var saveFood = await client.PostAsync("/Admin/SaveFood", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Id"] = foodId.ToString(), ["Name"] = "نام یکپارچه", ["IsActive"] = "true",
+            ["__RequestVerificationToken"] = WebUtility.HtmlDecode(imageToken.Groups[1].Value)
+        }));
+        Assert.Equal(HttpStatusCode.Redirect, saveFood.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var food = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Foods.SingleAsync(x => x.Id == foodId);
+            Assert.Equal("نام یکپارچه", food.Name); Assert.Equal(food.Name, food.Title);
+        }
         var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
         using var capacityPost = await client.PostAsync("/Admin/SaveCapacity", new FormUrlEncodedContent(new Dictionary<string, string>
         {
