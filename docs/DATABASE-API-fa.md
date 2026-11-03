@@ -52,3 +52,7 @@ Razor: /Account/Login، /Admin/Index، Branches، Foods، Images، Groups، Menu
 - `GET /api/manage/branches/{id}/capacity-defaults`: تنظیمات فعلی، نام غذا، branchFoodId و version از RowVersion؛ فقط شعبه مجاز.
 - `POST /api/manage/capacity-defaults`: BranchId، Total، WarningThreshold، IsActive و Foods شامل BranchFoodId، Selected و Version. یک تا ۵۰۰ انتخاب متفاوت؛ همه باید از همان شعبه باشند. پاسخ موفق 200؛ ذخیره اتمیک و Audit مشترک با فهرست شناسه‌ها انجام می‌شود.
 - GET بازه ظرفیت و API عمومی منو، ظرفیت مؤثر را از تنظیم پیش‌فرض یا استثنای تاریخ‌دار می‌خوانند. رکوردهای محاسبه‌شده Id=0 و RowVersion خالی دارند؛ این‌ها رکورد ذخیره‌شده نیستند. نسخه تنظیم گروهی از GET capacity-defaults خوانده شود. تنظیم ویژه تاریخ همچنان از POST capacities انجام می‌شود؛ پس از ذخیره، رکورد تاریخ‌دار بر پیش‌فرض اولویت دارد.
+
+## پرفروش‌ترین‌ها در پاسخ منو
+
+GET عمومی منوی شعبه، bestSellerIds را بر اساس مجموع تعداد Sold ثبت‌شده تا امروز برمی‌گرداند (تا ۸ شناسه مرتب‌شده، تنها اقلام فعال و مستقل همان شعبه). این فیلد مبلغ فروش یا سفارش پرداخت‌شده را محاسبه نمی‌کند؛ مدل سفارش/پرداخت هنوز وجود ندارد. برای فرانت بدون فروش، آرایه خالی ارسال می‌شود. تصویر گروه در groups[].imagePath موجود است.

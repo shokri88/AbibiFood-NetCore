@@ -25,12 +25,22 @@ public sealed class PublicCatalogController(AppDbContext db) : ControllerBase
         var memberships = await db.GroupFoods.AsNoTracking().Where(x => groupIds.Contains(x.BranchGroupId) && ids.Contains(x.BranchFoodId) && x.IsActive).ToListAsync(ct);
         var addons = await db.AllowedAddons.AsNoTracking().Where(x => ids.Contains(x.ParentBranchFoodId) && ids.Contains(x.AddonBranchFoodId) && x.IsActive).ToListAsync(ct);
         var hours = await db.BranchHours.AsNoTracking().Where(x => x.BranchId == branchId && x.IsActive).ToListAsync(ct);
+        // فقط تعداد فروش ثبت‌شده؛ رزرو، ظرفیت یا ترتیب قالب معیار محبوبیت نیست.
+        var today = AbibiFood.Domain.Rules.CapacitySchedule.Today();
+        var standaloneIds = foods.Where(f => f.CanSellStandalone).Select(f => f.Id).ToArray();
+        var sales = await db.DailyCapacities.AsNoTracking()
+            .Where(c => standaloneIds.Contains(c.BranchFoodId) && c.Date <= today && c.Sold > 0)
+            .GroupBy(c => c.BranchFoodId)
+            .Select(g => new { BranchFoodId = g.Key, Sold = g.Sum(c => (long)c.Sold) })
+            .OrderByDescending(g => g.Sold).ThenBy(g => g.BranchFoodId).Take(8).ToListAsync(ct);
+        var bestSellerIds = sales.Select(s => s.BranchFoodId).ToArray();
         return Ok(new
         {
             branchId,
             date = day,
             currency = "TOMAN",
             orderingEnabled = false,
+            bestSellerIds,
             groups,
             memberships,
             addons,

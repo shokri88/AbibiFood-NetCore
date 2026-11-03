@@ -125,6 +125,12 @@ public sealed class SqlServerAcceptanceTests(ITestOutputHelper output)
             }
             await using (var verify = Create())
                 Assert.All(await verify.BranchFoods.ToListAsync(), f => Assert.Equal(20, f.DefaultDailyCapacity));
+            db.DailyCapacities.Add(new DailyCapacity { BranchFoodId = main.Id, Date = AbibiFood.Domain.Rules.CapacitySchedule.Today(), Total = 20, Sold = 3 });
+            await db.SaveChangesAsync();
+            var menuResponse = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(
+                await new AbibiFood.Api.Controllers.PublicCatalogController(db).Menu(branch.Id, null, default));
+            using var menuJson = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(menuResponse.Value));
+            Assert.Equal(main.Id, menuJson.RootElement.GetProperty("bestSellerIds")[0].GetInt32());
             output.WriteLine("PASS: migration, shared item capacity, SQL rowversion, unique index and audit rollback.");
         }
         finally

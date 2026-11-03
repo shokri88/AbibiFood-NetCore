@@ -59,6 +59,35 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
     }
 
     [Fact]
+    public async Task PublicMenuRanksRecordedSalesAndReturnsGroupImage()
+    {
+        int branchId, firstId, secondId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var branch = new Branch { Name = "شعبه رتبه‌بندی", Address = "آدرس" };
+            db.Branches.Add(branch); await db.SaveChangesAsync(); branchId = branch.Id;
+            var first = new BranchFood { BranchId = branchId, Food = new Food { Name = "غذای اول" }, CanSellStandalone = true };
+            var second = new BranchFood { BranchId = branchId, Food = new Food { Name = "غذای دوم" }, CanSellStandalone = true };
+            var hidden = new BranchFood { BranchId = branchId, Food = new Food { Name = "غذای غیرفعال" }, IsActive = false };
+            db.BranchFoods.AddRange(first, second, hidden); await db.SaveChangesAsync(); firstId = first.Id; secondId = second.Id;
+            var today = AbibiFood.Domain.Rules.CapacitySchedule.Today();
+            db.DailyCapacities.AddRange(
+                new DailyCapacity { BranchFoodId = first.Id, Date = today, Total = 20, Sold = 3 },
+                new DailyCapacity { BranchFoodId = first.Id, Date = today.AddDays(-1), Total = 20, Sold = 7 },
+                new DailyCapacity { BranchFoodId = second.Id, Date = today.AddDays(-1), Total = 1000, Sold = 5, Reserved = 100 },
+                new DailyCapacity { BranchFoodId = second.Id, Date = today.AddDays(1), Total = 1000, Sold = 999 },
+                new DailyCapacity { BranchFoodId = hidden.Id, Date = today, Total = 1000, Sold = 999 });
+            db.BranchGroups.Add(new BranchGroup { BranchId = branchId, Title = "گروه تصویردار", ImagePath = "/uploads/catalog/group.png" });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client();
+        using var json = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{branchId}/menu"));
+        Assert.Equal(new[] { firstId, secondId }, json.RootElement.GetProperty("bestSellerIds").EnumerateArray().Select(x => x.GetInt32()));
+        Assert.Equal("/uploads/catalog/group.png", json.RootElement.GetProperty("groups")[0].GetProperty("imagePath").GetString());
+    }
+
+    [Fact]
     public async Task Employee_IsLimitedToAssignedBranch_AndCannotChangeCatalog()
     {
         var actor = await CreateActor("Employee"); using var client = Client();
