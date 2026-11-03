@@ -149,8 +149,39 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var offering = new BranchFood { FoodId = foodId, BranchId = actor.BranchId, Price = 20000 };
+            var offering = new BranchFood { FoodId = foodId, BranchId = actor.BranchId, Price = 20000, DiscountPrice = 15000 };
             db.BranchFoods.Add(offering); await db.SaveChangesAsync(); branchFoodId = offering.Id;
+            var group = new BranchGroup { BranchId = actor.BranchId, Title = "گروه آزمایش جدول", ImagePath = "/group-table.png", SortOrder = 7, IsActive = false };
+            db.BranchGroups.Add(group); await db.SaveChangesAsync();
+            db.GroupFoods.Add(new GroupFood { BranchGroupId = group.Id, BranchFoodId = offering.Id, SortOrder = 4, IsActive = false });
+            await db.SaveChangesAsync();
+        }
+        foreach (var page in new[] { "Menu", "Groups", "Memberships", "Foods", "Branches", "Addons", "Hours", "Capacities", "Index", "Employees" })
+        {
+            var tableHtml = WebUtility.HtmlDecode(await client.GetStringAsync($"/Admin/{page}?branchId={actor.BranchId}"));
+            Assert.Contains("<th>فعال</th>", tableHtml);
+            if (page is "Groups" or "Memberships") Assert.Contains("<th>ترتیب</th>", tableHtml);
+            if (page == "Menu")
+            {
+                Assert.Contains("<th>قیمت</th><th>قیمت تخفیفی</th>", tableHtml);
+                Assert.DoesNotContain("<th>جزئیات</th>", tableHtml);
+                Assert.Contains("غذای تصاویر</td>", tableHtml);
+                Assert.Contains("۲۰,۰۰۰ تومان", tableHtml);
+                Assert.Contains("۱۵,۰۰۰ تومان", tableHtml);
+            }
+            if (page == "Groups")
+            {
+                Assert.Contains("src=\"/group-table.png\"", tableHtml);
+                Assert.Contains("data-sort=\"7\">7</td>", tableHtml);
+                Assert.Contains("data-sort=\"0\">غیرفعال</td>", tableHtml);
+            }
+            if (page == "Memberships")
+            {
+                Assert.Contains("<th>گروه</th>", tableHtml);
+                Assert.DoesNotContain("<th>جزئیات</th>", tableHtml);
+                Assert.Contains("<td>گروه آزمایش جدول</td>", tableHtml);
+                Assert.Contains("data-sort=\"4\">4</td>", tableHtml);
+            }
         }
         foreach (var page in new[] { "Memberships", "Addons" })
         {

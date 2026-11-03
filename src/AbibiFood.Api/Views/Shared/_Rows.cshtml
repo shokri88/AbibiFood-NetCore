@@ -1,11 +1,34 @@
-@{var rows=ViewData["Rows"] as List<AdminRow> ?? [];}
+@{
+    var rows = ViewData["Rows"] as List<AdminRow> ?? [];
+    var columns = ViewData["TableOptions"] as AdminTableOptions ?? new();
+}
 <section class="admin-card grid-card">
     <h2 class="card-heading">فهرست رکوردها <span class="badge text-bg-light">@rows.Count</span></h2>
     <div class="table-responsive"><table class="table align-middle">
-        <thead><tr><th>عنوان</th><th>جزئیات</th><th data-no-sort>عملیات</th></tr></thead>
-        <tbody>@foreach(var row in rows){<tr><td>@if(row.ThumbnailUrl is not null){<img src="@row.ThumbnailUrl" class="image-thumb me-2" alt="تصویر اصلی @row.Title" loading="lazy">}@row.Title</td><td>@row.Details</td><td><div class="row-actions"><a href="@row.EditUrl" class="btn btn-outline-primary btn-sm">ویرایش</a>
-@if(row.ImageUrl is not null){<a href="@row.ImageUrl" class="btn btn-outline-primary btn-sm">تصاویر</a>}
-@if(row.DeleteKind is not null && row.DeleteId.HasValue){<partial name="_DeleteButton" model='new DeleteButton(row.DeleteKind, row.DeleteId.Value.ToString(), Context.Request.Path + Context.Request.QueryString)'/>}
-</div></td></tr>}</tbody>
+        <thead><tr>
+            <th>عنوان</th>
+            @if(columns.ShowDetails){<th>@columns.DetailsTitle</th>}
+            @if(columns.ShowPrices){<th>قیمت</th><th>قیمت تخفیفی</th>}
+            @if(columns.ShowActive){<th>فعال</th>}
+            @if(columns.ShowOrder){<th>ترتیب</th>}
+            <th data-no-sort>عملیات</th>
+        </tr></thead>
+        <tbody>@foreach(var row in rows){
+            <tr>
+                <td>@if(row.ThumbnailUrl is not null){<img src="@row.ThumbnailUrl" class="image-thumb me-2" alt="تصویر @row.Title" loading="lazy">}@row.Title</td>
+                @if(columns.ShowDetails){<td>@row.Details</td>}
+                @if(columns.ShowPrices){
+                    <td data-sort="@row.Price">@(row.Price.HasValue ? PersianDisplay.Money(row.Price.Value) + " تومان" : "—")</td>
+                    <td data-sort="@row.DiscountPrice">@(row.DiscountPrice.HasValue ? PersianDisplay.Money(row.DiscountPrice.Value) + " تومان" : "ندارد")</td>
+                }
+                @if(columns.ShowActive){<td data-sort="@(row.IsActive == true ? 1 : 0)">@(row.IsActive == true ? "فعال" : "غیرفعال")</td>}
+                @if(columns.ShowOrder){<td data-sort="@row.SortOrder">@row.SortOrder</td>}
+                <td><div class="row-actions">
+                    <a href="@row.EditUrl" class="btn btn-outline-primary btn-sm">ویرایش</a>
+                    @if(row.ImageUrl is not null){<a href="@row.ImageUrl" class="btn btn-outline-primary btn-sm">تصاویر</a>}
+                    @if(row.DeleteKind is not null && row.DeleteId.HasValue){<partial name="_DeleteButton" model='new DeleteButton(row.DeleteKind, row.DeleteId.Value.ToString(), Context.Request.Path + Context.Request.QueryString)'/>}
+                </div></td>
+            </tr>
+        }</tbody>
     </table></div>
 </section>
