@@ -1,0 +1,20 @@
+@model SpecialInput
+@{ViewData["Title"] = "پیشنهادهای ویژه شعبه";}
+<partial name="_BranchFilter"/>
+@if ((ViewData["BranchFoods"] as List<BranchFood> ?? []).Count == 0) {
+    <p class="alert alert-info">برای این شعبه غذایی تعریف نشده است؛ ابتدا از <a asp-action="Menu" asp-route-branchId='@ViewData["BranchId"]'>غذا و قیمت شعبه</a> غذا را تخصیص دهید.</p>
+}
+<p class="alert alert-info">غذاهای پیشنهاد ویژه را از منوی همین شعبه انتخاب کنید. فقط پیشنهاد فعال با غذای فعال و قابل فروش مستقل در اپ نمایش داده می‌شود.</p>
+<section class="admin-card mb-4">
+    <h2 class="card-heading">ثبت و ویرایش پیشنهاد</h2>
+    <form asp-action="SaveSpecial" method="post">
+        <input asp-for="Id" type="hidden"><input asp-for="BranchId" type="hidden">
+        <div class="row g-3">
+            <div class="col-md-6"><label asp-for="BranchFoodId" class="form-label">غذای شعبه</label><select asp-for="BranchFoodId" class="form-select" required><option value="">انتخاب غذا</option>@foreach(var food in ViewData["BranchFoods"] as List<BranchFood> ?? []){<option value="@food.Id">@food.Food.Name</option>}</select></div>
+            <div class="col-md-3"><label asp-for="SortOrder" class="form-label">ترتیب</label><input asp-for="SortOrder" type="number" min="0" step="1" class="form-control"></div>
+            <div class="col-md-3"><label class="check-field"><input asp-for="IsActive" class="form-check-input">فعال</label></div>
+            <div class="col-12 form-footer"><button class="btn btn-primary">ذخیره پیشنهاد</button><a asp-action="Specials" asp-route-branchId="@Model.BranchId" class="btn btn-outline-primary">پیشنهاد جدید</a></div>
+        </div>
+    </form>
+</section>
+<partial name="_Rows"/>

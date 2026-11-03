@@ -127,10 +127,15 @@ public sealed class SqlServerAcceptanceTests(ITestOutputHelper output)
                 Assert.All(await verify.BranchFoods.ToListAsync(), f => Assert.Equal(20, f.DefaultDailyCapacity));
             db.DailyCapacities.Add(new DailyCapacity { BranchFoodId = main.Id, Date = AbibiFood.Domain.Rules.CapacitySchedule.Today(), Total = 20, Sold = 3 });
             await db.SaveChangesAsync();
+            await service.SaveSpecialAsync(new SpecialInput { BranchId = branch.Id, BranchFoodId = main.Id, SortOrder = 1 }, default);
+            await service.SaveBannerAsync(new BannerInput { BranchId = branch.Id, BranchFoodId = main.Id, Title = "بنر SQL", Text = "متن مستقل SQL", ImagePath = "/uploads/catalog/banner-sql.png" }, default);
             var menuResponse = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(
                 await new AbibiFood.Api.Controllers.PublicCatalogController(db).Menu(branch.Id, null, default));
-            using var menuJson = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(menuResponse.Value));
+            using var menuJson = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(menuResponse.Value, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
             Assert.Equal(main.Id, menuJson.RootElement.GetProperty("bestSellerIds")[0].GetInt32());
+            Assert.Equal(main.Id, menuJson.RootElement.GetProperty("specialFoodIds")[0].GetInt32());
+            Assert.Equal("/uploads/catalog/banner-sql.png", menuJson.RootElement.GetProperty("banners")[0].GetProperty("imagePath").GetString());
+
             output.WriteLine("PASS: migration, shared item capacity, SQL rowversion, unique index and audit rollback.");
         }
         finally

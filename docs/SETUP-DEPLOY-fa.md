@@ -90,3 +90,13 @@ dotnet ef database update --project src/AbibiFood.Infrastructure --startup-proje
 ```
 
 Migration جدید `20261103115314_RecurringDailyCapacity` سه ستون تنظیم ظرفیت به BranchFoods اضافه می‌کند؛ ظرفیت‌های تاریخ‌دار قبلی و مصرفشان باقی می‌مانند. مقدار ظرفیت پیش‌فرض غذاهای قبلی null است؛ یک‌بار از صفحه ظرفیت روزانه به‌صورت گروهی تنظیم شود. اجرای این Migration روی دیتابیس آزمایشی مستقل SQL Server و تست rollback ثبت گروهی موفق بوده؛ روی دیتابیس مالک اجرا نشده است. Migration خودکار در startup فعال نشده است.
+
+## Migration پیشنهاد ویژه و بنر شعبه — ۲۰۲۶-۱۱-۰۳
+
+قبل از اجرای نسخه جدید بک‌اند، با connection امن محیط خودتان و پس از backup:
+
+```sh
+dotnet ef database update --project src/AbibiFood.Infrastructure --startup-project src/AbibiFood.Api
+```
+
+Migration `20261103181734_BranchHomeContent` جداول BranchSpecials و BranchBanners را اضافه می‌کند؛ داده‌ای به‌صورت خودکار برای صفحه اصلی ساخته نمی‌شود. بعد از Migration، مدیر از منوی «صفحه اصلی شعبه» شعبه را انتخاب و پیشنهاد و بنر فعال ثبت کند. در نبود تنظیم، آن بخش در اپ پنهان است. آپدیت فرانت و بک‌اند هر دو لازم‌اند. این Migration روی SQL آزمایشی مستقل اجرا شده و دیتابیس مالک تغییر نکرده است.

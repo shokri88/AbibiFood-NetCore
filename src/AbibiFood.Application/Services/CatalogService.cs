@@ -132,6 +132,37 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
             Details = System.Text.Json.JsonSerializer.Serialize(new { BranchFoodIds = ids, input.Total, input.WarningThreshold, input.IsActive })
         }, foods[0], ct);
     }
+    private async Task ValidateHomeContentAsync(SpecialInput input, CancellationToken ct)
+    {
+        Manager(); await user.EnsureBranchAsync(input.BranchId, ct);
+        if (input.SortOrder < 0 || !await db.BranchFoods.AnyAsync(f => f.Id == input.BranchFoodId && f.BranchId == input.BranchId, ct))
+            throw new ArgumentException("غذا باید از همان شعبه انتخاب شود و ترتیب منفی نباشد.");
+    }
+    public async Task<int> SaveSpecialAsync(SpecialInput input, CancellationToken ct)
+    {
+        await ValidateHomeContentAsync(input, ct);
+        var entity = input.Id == 0 ? new BranchSpecial { BranchId = input.BranchId } : await db.BranchSpecials.SingleAsync(x => x.Id == input.Id, ct);
+        if (entity.BranchId != input.BranchId) throw new ArgumentException("شعبه رکورد قابل تغییر نیست.");
+        if (await db.BranchSpecials.AnyAsync(x => x.BranchId == input.BranchId && x.BranchFoodId == input.BranchFoodId && x.Id != input.Id, ct))
+            throw new ArgumentException("این غذا قبلاً در پیشنهادهای ویژه ثبت شده است.");
+        entity.BranchFoodId = input.BranchFoodId; entity.SortOrder = input.SortOrder; entity.IsActive = input.IsActive;
+        if (input.Id == 0) db.BranchSpecials.Add(entity);
+        await AuditAsync("SaveSpecial", entity, input.BranchId, ct); return entity.Id;
+    }
+    public async Task<int> SaveBannerAsync(BannerInput input, CancellationToken ct)
+    {
+        await ValidateHomeContentAsync(input, ct);
+        if (string.IsNullOrWhiteSpace(input.Title) || input.Title.Trim().Length > 200 || string.IsNullOrWhiteSpace(input.Text) || input.Text.Trim().Length > 2000)
+            throw new ArgumentException("عنوان و متن معتبر برای بنر وارد کنید.");
+        ImagePath(input.ImagePath);
+        if (string.IsNullOrWhiteSpace(input.ImagePath)) throw new ArgumentException("تصویر اختصاصی بنر را انتخاب کنید.");
+        var entity = input.Id == 0 ? new BranchBanner { BranchId = input.BranchId } : await db.BranchBanners.SingleAsync(x => x.Id == input.Id, ct);
+        if (entity.BranchId != input.BranchId) throw new ArgumentException("شعبه رکورد قابل تغییر نیست.");
+        entity.BranchFoodId = input.BranchFoodId; entity.SortOrder = input.SortOrder; entity.IsActive = input.IsActive;
+        entity.Title = input.Title.Trim(); entity.Text = input.Text.Trim(); entity.ImagePath = input.ImagePath;
+        if (input.Id == 0) db.BranchBanners.Add(entity);
+        await AuditAsync("SaveBanner", entity, input.BranchId, ct); return entity.Id;
+    }
     public async Task<int> SaveCapacityAsync(CapacityInput input, CancellationToken ct)
     {
         var food = await db.BranchFoods.SingleAsync(x => x.Id == input.BranchFoodId, ct);
@@ -172,7 +203,7 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
                 branchId = id;
                 hasDependencies = await db.BranchFoods.AnyAsync(x => x.BranchId == id, ct) ||
                     await db.BranchGroups.AnyAsync(x => x.BranchId == id, ct) || await db.BranchHours.AnyAsync(x => x.BranchId == id, ct) ||
-                    await db.StaffBranches.AnyAsync(x => x.BranchId == id, ct);
+                    await db.StaffBranches.AnyAsync(x => x.BranchId == id, ct) || await db.BranchSpecials.AnyAsync(x => x.BranchId == id, ct) || await db.BranchBanners.AnyAsync(x => x.BranchId == id, ct);
                 if (hasDependencies) throw new ArgumentException("شعبه دارای غذا، گروه، ساعت یا دسترسی کارمند است؛ ابتدا وابستگی‌ها را حذف کنید یا شعبه را غیرفعال کنید.");
                 db.Branches.Remove((Branch)entity); break;
             case nameof(Food):
@@ -193,8 +224,8 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
                 entity = food; branchId = food.BranchId;
                 hasDependencies = await db.GroupFoods.AnyAsync(x => x.BranchFoodId == id, ct) ||
                     await db.AllowedAddons.AnyAsync(x => x.ParentBranchFoodId == id || x.AddonBranchFoodId == id, ct) ||
-                    await db.DailyCapacities.AnyAsync(x => x.BranchFoodId == id, ct);
-                if (hasDependencies) throw new ArgumentException("این غذای شعبه دارای گروه، افزودنی یا ظرفیت است؛ ابتدا وابستگی‌ها را حذف کنید یا آن را غیرفعال کنید.");
+                    await db.DailyCapacities.AnyAsync(x => x.BranchFoodId == id, ct) || await db.BranchSpecials.AnyAsync(x => x.BranchFoodId == id, ct) || await db.BranchBanners.AnyAsync(x => x.BranchFoodId == id, ct);
+                if (hasDependencies) throw new ArgumentException("این غذای شعبه دارای گروه، افزودنی، ظرفیت، پیشنهاد ویژه یا بنر است؛ ابتدا وابستگی‌ها را حذف کنید یا آن را غیرفعال کنید.");
                 db.BranchFoods.Remove(food); break;
             case nameof(GroupFood):
                 var membership = await db.GroupFoods.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
@@ -217,6 +248,14 @@ public sealed class CatalogService(IAppDbContext db, IUserScope user)
                 await user.EnsureBranchAsync(branchId.Value, ct);
                 if (capacity.Reserved != 0 || capacity.Sold != 0) throw new ArgumentException("ظرفیت دارای رزرو یا فروش قابل حذف نیست؛ در صورت نیاز آن را غیرفعال کنید.");
                 db.DailyCapacities.Remove(capacity); break;
+            case nameof(BranchSpecial):
+                var special = await db.BranchSpecials.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                await user.EnsureBranchAsync(special.BranchId, ct);
+                entity = special; branchId = special.BranchId; db.BranchSpecials.Remove(special); break;
+            case nameof(BranchBanner):
+                var banner = await db.BranchBanners.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
+                await user.EnsureBranchAsync(banner.BranchId, ct);
+                entity = banner; branchId = banner.BranchId; db.BranchBanners.Remove(banner); break;
             case nameof(StaffBranch):
                 var staff = await db.StaffBranches.FindAsync([id], ct) ?? throw new ArgumentException("رکورد پیدا نشد.");
                 entity = staff; branchId = staff.BranchId;

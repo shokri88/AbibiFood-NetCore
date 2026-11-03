@@ -5,6 +5,8 @@ namespace AbibiFood.Application.Abstractions;
 public interface IAppDbContext
 {
     DbSet<Branch> Branches { get; }
+    DbSet<BranchSpecial> BranchSpecials { get; }
+    DbSet<BranchBanner> BranchBanners { get; }
     DbSet<Food> Foods { get; }
     DbSet<FoodImage> FoodImages { get; }
     DbSet<BranchGroup> BranchGroups { get; }

@@ -9,6 +9,7 @@
         <a href="/Admin/Foods">مخزن غذا و تصاویر</a><a href="/Admin/Groups">گروه‌های غذایی</a>
         <a href="/Admin/Menu">غذا و قیمت شعبه</a><a href="/Admin/Memberships">غذاهای هر گروه</a><a href="/Admin/Addons">افزودنی‌های مجاز</a>
     </details>}
+    @if(User.IsInRole("Manager")){<details open><summary>صفحه اصلی شعبه</summary><a href="/Admin/Specials">پیشنهادهای ویژه</a><a href="/Admin/Banners">بنرهای صفحه اصلی</a></details>}
     <details open><summary>عملیات شعب</summary>
         <a href="/Admin/Capacities">ظرفیت روزانه</a>
         @if(User.IsInRole("Manager")){<a href="/Admin/Branches">مدیریت شعب</a><a href="/Admin/Hours">ساعات فعالیت</a>}

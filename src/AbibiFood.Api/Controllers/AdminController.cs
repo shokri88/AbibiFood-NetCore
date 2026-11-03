@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AbibiFood.Api.Controllers;
 
 [Authorize(Roles = "Manager,Employee")]
-public sealed class AdminController(AppDbContext db, CatalogService service, IUserScope user, Messages messages, UserManager<AppUser> users, ImageUploadStore uploads) : Controller
+public sealed partial class AdminController(AppDbContext db, CatalogService service, IUserScope user, Messages messages, UserManager<AppUser> users, ImageUploadStore uploads) : Controller
 {
     private async Task<int?> SelectBranch(int? branchId, CancellationToken ct)
     {

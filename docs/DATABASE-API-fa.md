@@ -56,3 +56,12 @@ Razor: /Account/Login، /Admin/Index، Branches، Foods، Images، Groups، Menu
 ## پرفروش‌ترین‌ها در پاسخ منو
 
 GET عمومی منوی شعبه، bestSellerIds را بر اساس مجموع تعداد Sold ثبت‌شده تا امروز برمی‌گرداند (تا ۸ شناسه مرتب‌شده، تنها اقلام فعال و مستقل همان شعبه). این فیلد مبلغ فروش یا سفارش پرداخت‌شده را محاسبه نمی‌کند؛ مدل سفارش/پرداخت هنوز وجود ندارد. برای فرانت بدون فروش، آرایه خالی ارسال می‌شود. تصویر گروه در groups[].imagePath موجود است.
+
+## پیشنهاد ویژه و بنر صفحه اصلی
+
+پاسخ GET منوی شعبه دو فیلد جدید دارد:
+
+- specialFoodIds: شناسه غذاهای شعبه که مدیر برای پیشنهاد ویژه انتخاب کرده، مرتب بر اساس SortOrder سپس Id.
+- banners: بنرهای فعال همان شعبه با id، branchFoodId، title، text و imagePath، مرتب بر اساس SortOrder سپس Id. لینک جزئیات غذا در فرانت از branchFoodId ساخته می‌شود.
+
+داده پیش‌فرض یا fallback به غذاهای اول منو وجود ندارد. رکورد با غذای غیرفعال یا غیرمستقل منتشر نمی‌شود. تنظیم از فرم‌های /Admin/Specials و /Admin/Banners (همراه branchId) و POSTهای SaveSpecial/SaveBanner با Cookie مدیر و CSRF انجام می‌شود. endpoint نوشتن عمومی یا URL تبلیغاتی آزاد اضافه نشده است. BranchSpecials دارای unique(BranchId,BranchFoodId) است؛ FKهای هر دو جدول Restrict هستند.

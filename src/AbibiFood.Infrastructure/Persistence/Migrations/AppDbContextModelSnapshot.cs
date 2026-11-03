@@ -137,6 +137,50 @@ namespace AbibiFood.Infrastructure.Persistence.Migrations
                     b.ToTable("Branches");
                 });
 
+            modelBuilder.Entity("AbibiFood.Domain.Entities.BranchBanner", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchFoodId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImagePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchFoodId");
+
+                    b.HasIndex("BranchId");
+
+                    b.ToTable("BranchBanners");
+                });
+
             modelBuilder.Entity("AbibiFood.Domain.Entities.BranchFood", b =>
                 {
                     b.Property<int>("Id")
@@ -255,6 +299,36 @@ namespace AbibiFood.Infrastructure.Persistence.Migrations
                     b.HasIndex("BranchId");
 
                     b.ToTable("BranchHours");
+                });
+
+            modelBuilder.Entity("AbibiFood.Domain.Entities.BranchSpecial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchFoodId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchFoodId");
+
+                    b.HasIndex("BranchId", "BranchFoodId")
+                        .IsUnique();
+
+                    b.ToTable("BranchSpecials");
                 });
 
             modelBuilder.Entity("AbibiFood.Domain.Entities.DailyCapacity", b =>
@@ -687,6 +761,23 @@ namespace AbibiFood.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("AbibiFood.Domain.Entities.BranchBanner", b =>
+                {
+                    b.HasOne("AbibiFood.Domain.Entities.BranchFood", "BranchFood")
+                        .WithMany()
+                        .HasForeignKey("BranchFoodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AbibiFood.Domain.Entities.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BranchFood");
+                });
+
             modelBuilder.Entity("AbibiFood.Domain.Entities.BranchFood", b =>
                 {
                     b.HasOne("AbibiFood.Domain.Entities.Branch", null)
@@ -720,6 +811,23 @@ namespace AbibiFood.Infrastructure.Persistence.Migrations
                         .HasForeignKey("BranchId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("AbibiFood.Domain.Entities.BranchSpecial", b =>
+                {
+                    b.HasOne("AbibiFood.Domain.Entities.BranchFood", "BranchFood")
+                        .WithMany()
+                        .HasForeignKey("BranchFoodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AbibiFood.Domain.Entities.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BranchFood");
                 });
 
             modelBuilder.Entity("AbibiFood.Domain.Entities.DailyCapacity", b =>

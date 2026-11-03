@@ -98,3 +98,18 @@ public sealed class CapacitySelection
     public bool Selected { get; set; }
     public string? Version { get; set; }
 }
+
+public class SpecialInput
+{
+    public int Id { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "انتخاب این مورد الزامی است.")] public int BranchId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "انتخاب این مورد الزامی است.")] public int BranchFoodId { get; set; }
+    [Range(0, int.MaxValue, ErrorMessage = "ترتیب نباید منفی باشد.")] public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+public sealed class BannerInput : SpecialInput
+{
+    [Required(ErrorMessage = "عنوان بنر الزامی است."), StringLength(200, ErrorMessage = "عنوان حداکثر ۲۰۰ نویسه است.")] public string Title { get; set; } = "";
+    [Required(ErrorMessage = "متن بنر الزامی است."), StringLength(2000, ErrorMessage = "متن حداکثر ۲۰۰۰ نویسه است.")] public string Text { get; set; } = "";
+    public string ImagePath { get; set; } = "";
+}

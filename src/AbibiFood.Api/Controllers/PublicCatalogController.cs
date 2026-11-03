@@ -34,6 +34,11 @@ public sealed class PublicCatalogController(AppDbContext db) : ControllerBase
             .Select(g => new { BranchFoodId = g.Key, Sold = g.Sum(c => (long)c.Sold) })
             .OrderByDescending(g => g.Sold).ThenBy(g => g.BranchFoodId).Take(8).ToListAsync(ct);
         var bestSellerIds = sales.Select(s => s.BranchFoodId).ToArray();
+        var specialFoodIds = await db.BranchSpecials.AsNoTracking().Where(s => s.BranchId == branchId && s.IsActive && standaloneIds.Contains(s.BranchFoodId))
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.Id).Select(s => s.BranchFoodId).ToListAsync(ct);
+        var banners = await db.BranchBanners.AsNoTracking().Where(b => b.BranchId == branchId && b.IsActive && standaloneIds.Contains(b.BranchFoodId))
+            .OrderBy(b => b.SortOrder).ThenBy(b => b.Id).Select(b => new { b.Id, b.BranchFoodId, b.Title, b.Text, b.ImagePath }).ToListAsync(ct);
+
         return Ok(new
         {
             branchId,
@@ -41,6 +46,8 @@ public sealed class PublicCatalogController(AppDbContext db) : ControllerBase
             currency = "TOMAN",
             orderingEnabled = false,
             bestSellerIds,
+            specialFoodIds,
+            banners,
             groups,
             memberships,
             addons,

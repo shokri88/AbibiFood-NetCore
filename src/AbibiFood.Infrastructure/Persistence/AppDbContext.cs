@@ -8,6 +8,8 @@ namespace AbibiFood.Infrastructure.Persistence;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<AppUser>(options), IAppDbContext
 {
     public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<BranchSpecial> BranchSpecials => Set<BranchSpecial>();
+    public DbSet<BranchBanner> BranchBanners => Set<BranchBanner>();
     public DbSet<Food> Foods => Set<Food>();
     public DbSet<FoodImage> FoodImages => Set<FoodImage>();
     public DbSet<BranchGroup> BranchGroups => Set<BranchGroup>();
@@ -64,5 +66,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : Ident
             property.SetMaxLength(property.Name is "Details" or "StackTrace" or "Message" ? 8000 : property.Name == "Description" ? 4000 : 500);
         // این FK باید با کلید nvarchar(450) در Identity برابر باشد؛ قاعده عمومی متن‌ها کافی نیست.
         b.Entity<StaffBranch>().Property(x => x.UserId).HasMaxLength(450);
+        b.Entity<BranchSpecial>().HasIndex(x => new { x.BranchId, x.BranchFoodId }).IsUnique();
+        b.Entity<BranchSpecial>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<BranchSpecial>().HasOne(x => x.BranchFood).WithMany().HasForeignKey(x => x.BranchFoodId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<BranchBanner>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<BranchBanner>().HasOne(x => x.BranchFood).WithMany().HasForeignKey(x => x.BranchFoodId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<BranchBanner>().Property(x => x.Title).HasMaxLength(200);
+        b.Entity<BranchBanner>().Property(x => x.Text).HasMaxLength(2000);
+
     }
 }

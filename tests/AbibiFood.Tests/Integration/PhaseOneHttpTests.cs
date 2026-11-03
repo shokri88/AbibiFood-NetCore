@@ -59,6 +59,65 @@ public sealed class PhaseOneHttpTests(PhaseOneFactory factory)
     }
 
     [Fact]
+    public async Task ManagerCanPublishSpecialAndUploadIndependentBannerWithCsrf()
+    {
+        var actor = await CreateActor("Manager"); using var client = Client();
+        var loginHtml = await client.GetStringAsync("/Account/Login");
+        string Csrf(string html) => WebUtility.HtmlDecode(Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"").Groups[1].Value);
+        await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string> { ["Email"] = actor.Email, ["Password"] = actor.Password, ["__RequestVerificationToken"] = Csrf(loginHtml) }));
+        int foodId, otherFoodId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var food = new BranchFood { BranchId = actor.BranchId, Food = new Food { Name = "غذای بنر" }, CanSellStandalone = true };
+            var other = new BranchFood { BranchId = actor.OtherBranchId, Food = new Food { Name = "غذای شعبه دیگر" } };
+            db.BranchFoods.AddRange(food, other); await db.SaveChangesAsync(); foodId = food.Id; otherFoodId = other.Id;
+        }
+        var specialsHtml = await client.GetStringAsync($"/Admin/Specials?branchId={actor.BranchId}");
+        var bannerHtml = await client.GetStringAsync($"/Admin/Banners?branchId={actor.BranchId}");
+        Assert.Contains("multipart/form-data", bannerHtml);
+        var form = new Dictionary<string, string> { ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["SortOrder"] = "۲", ["IsActive"] = "true" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Admin/SaveSpecial", new FormUrlEncodedContent(form))).StatusCode);
+        form["__RequestVerificationToken"] = Csrf(specialsHtml);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Admin/SaveSpecial", new FormUrlEncodedContent(form))).StatusCode);
+        form["BranchFoodId"] = otherFoodId.ToString();
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Admin/SaveSpecial", new FormUrlEncodedContent(form))).StatusCode);
+        using var upload = new MultipartFormDataContent();
+        foreach (var pair in new Dictionary<string, string> { ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["Title"] = "عنوان اختصاصی", ["Text"] = "متن اختصاصی", ["ImagePath"] = "https://forged.test/image.png", ["IsActive"] = "true", ["__RequestVerificationToken"] = Csrf(bannerHtml) }) upload.Add(new StringContent(pair.Value), pair.Key);
+        var image = new ByteArrayContent(new byte[] {137,80,78,71,13,10,26,10,0,0,0,0}); image.Headers.ContentType = new MediaTypeHeaderValue("image/png"); upload.Add(image, "imageFile", "banner.png");
+        Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Admin/SaveBanner", upload)).StatusCode);
+        string storedPath; int bannerId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var stored = await scope.ServiceProvider.GetRequiredService<AppDbContext>().BranchBanners.SingleAsync(b => b.BranchId == actor.BranchId);
+            storedPath = stored.ImagePath; bannerId = stored.Id;
+        }
+        try
+        {
+            Assert.StartsWith("/uploads/catalog/", storedPath);
+            var edit = new Dictionary<string, string> { ["Id"] = bannerId.ToString(), ["BranchId"] = actor.BranchId.ToString(), ["BranchFoodId"] = foodId.ToString(), ["Title"] = "عنوان اختصاصی", ["Text"] = "متن ویرایش‌شده", ["ImagePath"] = "https://forged.test/replacement.png", ["IsActive"] = "true", ["__RequestVerificationToken"] = Csrf(bannerHtml) };
+            Assert.Equal(HttpStatusCode.Redirect, (await client.PostAsync("/Admin/SaveBanner", new FormUrlEncodedContent(edit))).StatusCode);
+            using var json = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{actor.BranchId}/menu"));
+            Assert.Equal(foodId, json.RootElement.GetProperty("specialFoodIds")[0].GetInt32());
+            var banner = json.RootElement.GetProperty("banners")[0];
+            Assert.Equal(foodId, banner.GetProperty("branchFoodId").GetInt32()); Assert.Equal("عنوان اختصاصی", banner.GetProperty("title").GetString());
+            Assert.Equal("متن ویرایش‌شده", banner.GetProperty("text").GetString()); Assert.Equal(storedPath, banner.GetProperty("imagePath").GetString());
+            using var otherJson = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{actor.OtherBranchId}/menu"));
+            Assert.Equal(0, otherJson.RootElement.GetProperty("banners").GetArrayLength());
+            using (var scope = factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                (await db.BranchBanners.SingleAsync(b => b.BranchId == actor.BranchId)).IsActive = false;
+                (await db.BranchSpecials.SingleAsync(b => b.BranchId == actor.BranchId)).IsActive = false;
+                await db.SaveChangesAsync();
+            }
+            using var hidden = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync($"/api/catalog/branches/{actor.BranchId}/menu"));
+            Assert.Equal(0, hidden.RootElement.GetProperty("banners").GetArrayLength()); Assert.Equal(0, hidden.RootElement.GetProperty("specialFoodIds").GetArrayLength());
+        }
+        finally { using var scope = factory.Services.CreateScope(); scope.ServiceProvider.GetRequiredService<AbibiFood.Api.Services.ImageUploadStore>().DeleteNewFile(storedPath); }
+    }
+
+    [Fact]
     public async Task PublicMenuRanksRecordedSalesAndReturnsGroupImage()
     {
         int branchId, firstId, secondId;

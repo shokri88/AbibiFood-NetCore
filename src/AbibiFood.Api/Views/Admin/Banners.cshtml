@@ -1,0 +1,23 @@
+@model BannerInput
+@{ViewData["Title"] = "بنرهای صفحه اصلی شعبه";}
+<partial name="_BranchFilter"/>
+@if ((ViewData["BranchFoods"] as List<BranchFood> ?? []).Count == 0) {
+    <p class="alert alert-info">برای این شعبه غذایی تعریف نشده است؛ ابتدا از <a asp-action="Menu" asp-route-branchId='@ViewData["BranchId"]'>غذا و قیمت شعبه</a> غذا را تخصیص دهید.</p>
+}
+<p class="alert alert-info">عنوان، متن و تصویر اختصاصی باکس قرمز را وارد کنید و غذای مقصد را از همین شعبه انتخاب کنید. تصویر و دکمه بنر، صفحه جزئیات همان غذا را باز می‌کنند. غذای مقصد باید فعال و قابل فروش مستقل باشد. ترتیب کمتر زودتر نمایش داده می‌شود.</p>
+<section class="admin-card mb-4">
+    <h2 class="card-heading">ثبت و ویرایش بنر</h2>
+    <form asp-action="SaveBanner" method="post" enctype="multipart/form-data">
+        <input asp-for="Id" type="hidden"><input asp-for="BranchId" type="hidden">
+        <div class="row g-3">
+            <div class="col-md-6"><label asp-for="Title" class="form-label">عنوان بنر</label><input asp-for="Title" class="form-control" required maxlength="200"></div>
+            <div class="col-md-6"><label asp-for="BranchFoodId" class="form-label">لینک به غذای شعبه</label><select asp-for="BranchFoodId" class="form-select" required><option value="">انتخاب غذا</option>@foreach(var food in ViewData["BranchFoods"] as List<BranchFood> ?? []){<option value="@food.Id">@food.Food.Name</option>}</select></div>
+            <div class="col-12"><label asp-for="Text" class="form-label">متن بنر</label><textarea asp-for="Text" class="form-control" required maxlength="2000" rows="3"></textarea></div>
+            <div class="col-md-6"><label for="bannerImage" class="form-label">تصویر اختصاصی بنر</label><input type="file" id="bannerImage" name="imageFile" class="form-control" accept="image/png,image/jpeg,image/webp" data-image-upload required="@(Model.Id == 0)"><small>PNG، JPEG یا WebP؛ حداکثر ۵ مگابایت. در ویرایش، انتخاب فایل جدید اختیاری است.</small>@if(!string.IsNullOrEmpty(Model.ImagePath)){<img src="@Model.ImagePath" class="image-preview" alt="تصویر فعلی بنر">}</div>
+            <div class="col-md-3"><label asp-for="SortOrder" class="form-label">ترتیب</label><input asp-for="SortOrder" type="number" min="0" step="1" class="form-control"></div>
+            <div class="col-md-3"><label class="check-field"><input asp-for="IsActive" class="form-check-input">فعال</label></div>
+            <div class="col-12 form-footer"><button class="btn btn-primary">ذخیره بنر</button><a asp-action="Banners" asp-route-branchId="@Model.BranchId" class="btn btn-outline-primary">بنر جدید</a></div>
+        </div>
+    </form>
+</section>
+<partial name="_Rows"/>
